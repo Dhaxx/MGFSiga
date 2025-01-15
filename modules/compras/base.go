@@ -1,96 +1,208 @@
 package compras
 
 import (
+	"MGFSiga/modules"
 	"database/sql"
-	"log"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/vbauerster/mpb"
 )
 
-func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress, wg *sync.WaitGroup) {
+func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress) {
+	modules.LimpaTabela("cadunimedida")
+
 	defer wg.Done()
-	defer cnxFdb.Close()
-
-	insert, err := cnxFdb.Prepare("INSERT INTO CADUNIMEDIDA(sigla, descricao) VALUES(?,?)")
+	tx, err := cnxFdb.Begin()
 	if err != nil {
-		log.Fatalf("Erro ao preparar insert: %v", err)
+		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	defer insert.Close()
+	defer tx.Commit()
 
-	rows, err := cnxSqls.Query("SELECT DISTINCT SUBSTRING(unidade, 1, 5) AS sigla, unidade FROM EspecificacaoMaterialOuServico emos")
+	insert, err := tx.Prepare("INSERT INTO CADUNIMEDIDA(sigla, descricao) VALUES(?,?)")
 	if err != nil {
-		log.Fatalf("Erro ao obter linhas: %v", err)
+		fmt.Printf("Erro ao preparar insert: %v", err)
+	}
+	
+
+	query := "SELECT DISTINCT rtrim(SUBSTRING(unidade, 1, 5)) AS sigla, rtrim(unidade) as unidade FROM EspecificacaoMaterialOuServico emos"
+	rows, err := cnxSqls.Query(query)
+	if err != nil {
+		fmt.Printf("Erro ao obter linhas: %v", err)
 	}
 	defer rows.Close()
 
+	totalLinhas, err := modules.CountRows(query, cnxFdb)
+	if err != nil {
+		fmt.Printf("erro ao contar linhas: %v", err)
+	}
+	barCadunimedida := modules.NewProgressBar(p, totalLinhas, "CADUNIMEDIDA")
+	
 	for rows.Next() {
-		var cadunimedida struct {
+		var (
 			sigla string
 			unidade string
+		)
+
+		if err := rows.Scan(&sigla, &unidade); err != nil {
+			fmt.Printf("Erro ao scanear valores: %v", err)
 		}
 
-		if err := rows.Scan(&cadunimedida.sigla, &cadunimedida.unidade); err != nil {
-			log.Fatalf("Erro ao scanear valores: %v", err)
-		}
-
-		_, err := insert.Exec(cadunimedida)
+		_, err := insert.Exec(sigla, unidade)
 		if err != nil {
-			log.Fatalf("Erro ao inserir registros: %v", err)
+			fmt.Printf("Erro ao inserir em CADUNIMEDIDA: %v", err)
 		}
+		barCadunimedida.Increment()
 	}
 }
 
-func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress, wg *sync.WaitGroup) {
+func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress) {
+	modules.LimpaTabela("cadsubgr")
+	modules.LimpaTabela("cadgrupo")
+
 	defer wg.Done()
-	defer cnxFdb.Close()
-	
-	inserts := map[string]string{
-		"grupo":    "INSERT INTO CADGRUPO(grupo, nome, ocultar) VALUES(?,?,?)",
-		"subgrupo": "INSERT INTO CADSUBGR(grupo, subgrupo, nome, ocultar) VALUES(?,?,?,?)",
-	}
-
-	rows, err := cnxFdb.Query(`SELECT
-			FORMAT(CAST(REPLACE(dbo.Grupo.IdGrupo, '0', '') AS INT), '000') AS IdGrupoFormatado,
-			dbo.Grupo.Descricao,
-			FORMAT(CAST(REPLACE(SubGrupo.IdGrupo, '0', '') AS INT), '000') AS IdSubGrupoFormatado,
-			SubGrupo.Descricao AS DescricaoSubGrupo
-		FROM
-			dbo.Grupo
-		INNER JOIN
-			dbo.Grupo AS SubGrupo
-		ON
-			LEFT(dbo.Grupo.IdGrupo, 3) = LEFT(SubGrupo.IdGrupo, 3);`)
+	tx, err := cnxFdb.Begin()
 	if err != nil {
-		log.Fatalf("Erro ao obter linhas: %v", err)
+		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	defer rows.Close()
+	
+	insert, err := tx.Prepare("INSERT INTO CADGRUPO(grupo, nome, ocultar, id_ant) VALUES(?,?,?,?)")
+	if err != nil {
+		fmt.Printf("Erro ao preparar insert: %v", err)
+	}
+	
+	query := `select DISTINCT 
+		FORMAT(CAST(REPLACE(dbo.Grupo.IdGrupo, '0', '') AS INT),
+		'000') grupo,
+		substring(descricao,1,45) nome,
+		'N' ocultar,
+		IdGrupo
+	from
+		grupo`
 
-	grupoAnt := ""
+	rows, err := cnxSqls.Query(query)
+	if err != nil {
+		fmt.Printf("erro ao obter linhas: %v", err)
+	}
+
+	modules.NewCol("CADGRUPO", "ID_ANT", "varchar")
+	modules.NewCol("CADSUBGR", "ID_ANT", "varchar")
+
+	totalLinhas, err := modules.CountRows(query, cnxFdb)
+	if err != nil {
+		fmt.Printf("erro ao contar linhas: %v", err)
+	}
+	barGrupo := modules.NewProgressBar(p, totalLinhas, "CADUNIMEDIDA")
+
 	for rows.Next() {
-		var cadgrupo struct{
+		var (
 			grupo string
-			nome string
+			descricao string
 			ocultar string
-		}
-		var cadsubgr struct{
-			grupo string
-			subgrupo string
-			nome string
-			ocultar string
+			id_ant string
+		)
+
+		if err := rows.Scan(&grupo, &descricao, &ocultar, &id_ant); err != nil {
+			fmt.Printf("Erro ao scanear valores: %v", err)
 		}
 
-		if cadgrupo.grupo != grupoAnt {
-			if err := rows.Scan(&cadgrupo.grupo, &cadgrupo.nome, &cadgrupo.ocultar); err != nil {
-				log.Fatalf("Erro ao scanear valores: %v", err)
+		if _, err := insert.Exec(grupo, descricao, ocultar, id_ant); err != nil {
+			fmt.Printf("Erro ao inserir em CADGRUPO: %v", err)
+		}
+		barGrupo.Increment()
+	}
+	tx.Commit()
+	if _, err := cnxFdb.Exec("INSERT INTO cadsubgr (grupo, SUBGRUPO, nome, ocultar, id_ant) SELECT GRUPO, '000', nome, ocultar, id_ant FROM CADGRUPO"); err != nil {
+		fmt.Printf("Erro ao inserir em CADSUBGR: %v", err)
+	}
+}
+
+func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress) {
+	modules.LimpaTabela("cadest")
+
+	defer wg.Done()
+	tx, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("erro ao iniciar transação: %v", err)
+	}
+	defer tx.Commit()
+
+	insert, err := tx.Prepare(`INSERT
+								INTO
+								Cadest(cadpro,
+								grupo,
+								subgrupo,
+								codigo,
+								disc1,
+								tipopro,
+								unid1,
+								discr1,
+								codreduz,
+								ocultar,
+								balco_tce,
+								balco_tce_saida)
+							VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+	if err != nil {
+		fmt.Printf("Erro ao preparar insert: %v", err)
+	}
+	
+	query := `select
+		cast(idEspecificacao as integer) id,
+		idEspecificacao,
+		idGrupo,
+		descricao,
+		especificacao,
+		contaDoAtivo balcoTce,
+		VPD balcoTceSaida,
+		rtrim(substring(unidade, 1, 5)) unidade,
+		case 
+			when idSubTipoDeProduto = 5 then 'S'
+			else 'P'
+		end tipopro
+	from
+		dbo.EspecificacaoMaterialOuServico emos`
+	
+	rows, err := cnxSqls.Query(query)
+	if err != nil {
+		fmt.Printf("erro ao obter linhas: %v", err)
+	}
+
+	totalLinhas, err := modules.CountRows(query, cnxSqls)
+	if err != nil {
+		fmt.Printf("erro ao contar linhas: %v", err)
+	}
+	barCadest := modules.NewProgressBar(p, totalLinhas, "CADEST")
+
+	for rows.Next() {
+		var idEspecificacao, idAnt, descricao, especificacao, balcoTce, balcoTceSaida, unidade, tipopro, codigoString string
+		var codigo int
+
+		if err = rows.Scan(&codigo, &idEspecificacao, &idAnt, &descricao, &especificacao, &balcoTce, &balcoTceSaida, &unidade, &tipopro); err != nil {
+			fmt.Printf("Erro ao scanear valores: %v", err)
+		}
+
+		grupoSubgrupo := modules.Cache.Subgrupos[idAnt]
+		if grupoSubgrupo == "" {
+			grupoSubgrupo = modules.CriaGrupoSubgrupo(idAnt)
+		}
+
+		if codigo >= 1000 {
+			grupoSubgrupo, err = modules.EstourouSubGrupo(codigo, idAnt)
+			if err != nil {
+				fmt.Printf("erro: %v", err)
 			}
-			cnxFdb.Exec(inserts["grupo"], cadgrupo.grupo, cadgrupo.nome, "N")
+			codigoString = fmt.Sprintf("%03d", codigo%1000)
+		} else {
+			codigoString = fmt.Sprintf("%03d", codigo)
 		}
 
-		if err := rows.Scan(&cadsubgr.grupo, &cadsubgr.subgrupo, &cadsubgr.nome); err != nil {
-			log.Fatalf("Erro ao scanear valores: %v", err)
-		}
+		cadpro := fmt.Sprintf("%v.%v",grupoSubgrupo, codigoString)
+		grupoSubgrupoSeparado := strings.Split(grupoSubgrupo, ".")
 
-		cnxFdb.Exec(inserts["subgrupo"], cadsubgr.grupo, cadsubgr.subgrupo, cadsubgr.nome, "N")
+		if _, err := insert.Exec(cadpro, grupoSubgrupoSeparado[0], grupoSubgrupoSeparado[1], codigoString, descricao, tipopro, unidade, especificacao, idEspecificacao, "N", balcoTce, balcoTceSaida); err != nil {
+			fmt.Printf("Erro ao inserir em CADEST: %v", err)
+		}
+		barCadest.Increment()
 	}
 }
