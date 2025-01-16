@@ -14,10 +14,8 @@ var Cache struct {
 	Subgrupos map[string]string
 }
 
-func init() {
+func ArmazenaGruposSubgrupos() {
 	Cache.Subgrupos = make(map[string]string)
-	NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
-	NewCol("CADSUBGR", "ID_ANT", "varchar(6)")
 
 	rowsSubgrupos, err := connection.ConexaoFdb.Query("select id_ant, grupo||'.'||subgrupo from cadsubgr")
 	if err != nil {
@@ -94,22 +92,21 @@ func NewCol(table string, colName string, info string) {
 	tx.Commit()
 }
 
-func EstourouSubGrupo(codigo int, id_ant string) (string, error) {
+func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error) {
 	tx, err := connection.ConexaoFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
+	defer tx.Commit()
 
 	milhar := codigo / 1000
-	aux1 := Cache.Subgrupos[id_ant]
-	grupoSubgrupo := strings.Split(aux1, ".")
+	grupoSubgrupo := strings.Split(subgrupo, ".")
 	novoSubgr := fmt.Sprintf("%03d", milhar)
 	novoGrupoSubgrupo := grupoSubgrupo[0] + "." + novoSubgr
 
-	if _, err = tx.Query(fmt.Sprintf("select 1 from cadsubgr where id_ant = %s", id_ant)); err != nil {
+	if _, err = tx.Query(fmt.Sprintf("select 1 from cadsubgr where id_ant = %v and subgrupo = %v", id_ant, novoSubgr)); err != nil {
 		if err == sql.ErrNoRows {
 			tx.Exec(fmt.Sprintf("INSERT INTO cadsubgr (grupo, SUBGRUPO, nome, ocultar, id_ant) SELECT GRUPO, %v, nome, ocultar, id_ant FROM CADGRUPO WHERE GRUPO = %v", novoSubgr, grupoSubgrupo[0]))
-			tx.Commit()
 		} else {
 			tx.Rollback()
 			return "", fmt.Errorf("erro ao buscar subgrupos: %v", err)
@@ -129,18 +126,20 @@ func CriaGrupoSubgrupo(id_ant string) string {
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	defer tx1.Commit()
+	defer tx2.Commit()
 
 	grupo := id_ant[:3]
 
 	_, err = tx1.Exec(`INSERT INTO CADGRUPO(grupo, nome, ocultar, id_ant) VALUES(?,?,?,?)`, grupo, "CONVERSÃO", "N", id_ant)
 	if err != nil {
-		fmt.Printf("erro ao executar bloco: %v", err)
+		tx1.Rollback()
+		fmt.Printf("erro ao tentar inserir grupo: %v", err)
 	}
 
 	_, err = tx2.Exec("INSERT INTO cadsubgr (grupo, SUBGRUPO, nome, ocultar, id_ant) SELECT GRUPO, '000', nome, ocultar, id_ant FROM CADGRUPO WHERE grupo = ?", grupo)
 	if err != nil {
-		fmt.Printf("erro ao executar bloco: %v", err)
+		tx2.Rollback()
+		fmt.Printf("erro ao tentar inserir subgrupo: %v", err)
 	}
 	
 	novoGrupoSubgrupo := fmt.Sprintf("%v.000", grupo)
