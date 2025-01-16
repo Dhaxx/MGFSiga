@@ -1,19 +1,17 @@
 package compras
 
 import (
+	"MGFSiga/connection"
 	"MGFSiga/modules"
 	"database/sql"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/vbauerster/mpb"
 )
 
-func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress) {
+func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	modules.LimpaTabela("cadunimedida")
-
-	defer wg.Done()
 	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
@@ -57,11 +55,13 @@ func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Pr
 	}
 }
 
-func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress) {
+func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	modules.LimpaTabela("cadsubgr")
 	modules.LimpaTabela("cadgrupo")
 
-	defer wg.Done()
+	modules.NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
+	modules.NewCol("CADSUBGR", "ID_ANT", "varchar(6)")
+
 	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
@@ -85,9 +85,6 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.P
 	if err != nil {
 		fmt.Printf("erro ao obter linhas: %v", err)
 	}
-
-	modules.NewCol("CADGRUPO", "ID_ANT", "varchar")
-	modules.NewCol("CADSUBGR", "ID_ANT", "varchar")
 
 	totalLinhas, err := modules.CountRows(query, cnxFdb)
 	if err != nil {
@@ -118,10 +115,9 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.P
 	}
 }
 
-func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress) {
+func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	modules.LimpaTabela("cadest")
 
-	defer wg.Done()
 	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
@@ -188,7 +184,7 @@ func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress
 		}
 
 		if codigo >= 1000 {
-			grupoSubgrupo, err = modules.EstourouSubGrupo(codigo, idAnt)
+			grupoSubgrupo, err = modules.EstourouSubGrupo(codigo, grupoSubgrupo, idAnt)
 			if err != nil {
 				fmt.Printf("erro: %v", err)
 			}
@@ -205,4 +201,22 @@ func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, wg *sync.WaitGroup, p *mpb.Progress
 		}
 		barCadest.Increment()
 	}
+	fmt.Print("Acabou")
+}
+
+func Destino(p *mpb.Progress) {
+	modules.LimpaTabela("caddestino")
+
+	tx, err := connection.ConexaoFdb.Begin()
+	if err != nil {
+		fmt.Printf("erro ao iniciar transação: %v", err)
+	}
+	defer tx.Commit()
+
+	insert, err := tx.Prepare("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES(?,?,?)")
+	if err != nil {
+		fmt.Printf("Erro ao preparar insert: %v", err)
+	}
+
+	
 }
