@@ -2,29 +2,51 @@ package modules
 
 import (
 	"MGFSiga/connection"
+	"bytes"
 	"database/sql"
 	"fmt"
 	"strings"
 
 	"github.com/vbauerster/mpb"
 	"github.com/vbauerster/mpb/decor"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
 )
 
 var Cache struct {
 	Subgrupos map[string]string
+	Medidas map[string]string
+	Empresa int
+	IdCadorc map[string]int
+	Itens map[string]string
+}
+
+func init() {
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	cnxFdb.QueryRow("Select empresa from cadcli").Scan(&Cache.Empresa)
 }
 
 func ArmazenaGruposSubgrupos() {
 	Cache.Subgrupos = make(map[string]string)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
 
-	rowsSubgrupos, err := connection.ConexaoFdb.Query("select id_ant, grupo||'.'||subgrupo from cadsubgr")
+	rowsSubgrupos, err := cnxFdb.Query("select id_ant, grupo||'.'||subgrupo from cadsubgr")
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Printf("Cadsubgr não possuem registros ainda: %v", err)
 		}
 		fmt.Printf("Erro ao obter subgrupos: %v", err)
 	}
-	defer rowsSubgrupos.Close()
 
 	for rowsSubgrupos.Next() {
 		var id_ant, grupoSubgrupo string
@@ -36,24 +58,116 @@ func ArmazenaGruposSubgrupos() {
 	}
 }
 
+func ArmazenaUnidadesMedidas() {
+	Cache.Medidas = make(map[string]string)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	rows, err := cnxFdb.Query("select descricao, sigla from cadunimedida")
+	if err != nil {
+		fmt.Printf("erro ao buscar unidades de medida: %v", err)
+	}
+
+	for rows.Next() {
+		var descricao, sigla string
+		if err := rows.Scan(&descricao, &sigla); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+		Cache.Medidas[descricao] = sigla
+	}
+}
+
+func ArmazenaIdCadorc() {
+	Cache.IdCadorc = make(map[string]int)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	rows, err := cnxFdb.Query("select numorc, id_cadorc from cadunimedida")
+	if err != nil {
+		fmt.Printf("erro ao buscar unidades de medida: %v", err)
+	}
+
+	for rows.Next() {
+		var numorc string
+		var idCadorc int
+
+		if err := rows.Scan(&numorc, &idCadorc); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+
+		Cache.IdCadorc[numorc] = idCadorc
+	}
+}
+
+func ArmazenaNumorc() {
+	Cache.IdCadorc = make(map[string]int)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+}
+
+func ArmazenaItens() {
+	Cache.IdCadorc = make(map[string]int)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	rows, err := cnxFdb.Query("select cadpro, codreduz from cadest")
+	if err != nil {
+		fmt.Printf("erro ao buscar unidades de medida: %v", err)
+	}
+
+	for rows.Next() {
+		var cadpro, codreduz string
+
+		if err := rows.Scan(&cadpro, &codreduz); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+
+		Cache.Itens[codreduz] = cadpro
+	}
+}
+
 func LimpaTabela(tabela string) {
-	tx, err := connection.ConexaoFdb.Begin()
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	defer tx.Commit()
 
 	if _, err = tx.Exec(fmt.Sprintf("DELETE FROM %v", tabela)); err != nil {
 		fmt.Printf("erro ao limpar tabela: %v", err)
 		tx.Rollback()
 	}
+	tx.Commit()
 }
 
-func CountRows(q string, cnx *sql.DB) (int64, error) {
+func CountRows(q string) (int64, error) {
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxSqls.Close()
+
 	var count int64
 	query := fmt.Sprintf("SELECT count(*) FROM (%v) as subquery", q)
 	
-	if err := connection.ConexaoSql.QueryRow(query).Scan(&count); err != nil {
+	if err := cnxSqls.QueryRow(query).Scan(&count); err != nil {
 		if err == sql.ErrNoRows {
 			return 0, fmt.Errorf("nenhuma linha recuperada: %v", sql.ErrNoRows.Error())
 		}
@@ -78,7 +192,13 @@ func NewProgressBar(p *mpb.Progress, total int64, label string) *mpb.Bar {
 }
 
 func NewCol(table string, colName string, info string) {
-	tx, err := connection.ConexaoFdb.Begin()
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
@@ -93,7 +213,13 @@ func NewCol(table string, colName string, info string) {
 }
 
 func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error) {
-	tx, err := connection.ConexaoFdb.Begin()
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
@@ -116,17 +242,21 @@ func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error
 }
 
 func CriaGrupoSubgrupo(id_ant string) string {
-	tx1, err := connection.ConexaoFdb.Begin()
+	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
-		fmt.Printf("erro ao iniciar transação: %v", err)
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
 	}
-	defer tx1.Commit()
+	defer cnxFdb.Close()
 
-	tx2, err := connection.ConexaoFdb.Begin()
+	tx1, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	defer tx2.Commit()
+
+	tx2, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("erro ao iniciar transação: %v", err)
+	}
 
 	grupo := id_ant[:3]
 
@@ -135,14 +265,46 @@ func CriaGrupoSubgrupo(id_ant string) string {
 		tx1.Rollback()
 		fmt.Printf("erro ao tentar inserir grupo: %v", err)
 	}
+	tx1.Commit()
 
 	_, err = tx2.Exec("INSERT INTO cadsubgr (grupo, SUBGRUPO, nome, ocultar, id_ant) SELECT GRUPO, '000', nome, ocultar, id_ant FROM CADGRUPO WHERE grupo = ?", grupo)
 	if err != nil {
 		tx2.Rollback()
 		fmt.Printf("erro ao tentar inserir subgrupo: %v", err)
 	}
+	tx2.Commit()
 	
 	novoGrupoSubgrupo := fmt.Sprintf("%v.000", grupo)
 	Cache.Subgrupos[id_ant] = novoGrupoSubgrupo
 	return novoGrupoSubgrupo
+}
+
+func DecodeToWin1252(input string) (string, error) {
+	// Define uma tabela de caracteres válidos no Windows-1252
+	validChars := charmap.Windows1252
+
+	// Remove ou substitui caracteres inválidos
+	t := transform.Chain(
+		runes.Remove(runes.Predicate(func(r rune) bool {
+			// Remove caracteres que não são válidos no Windows-1252
+			_, ok := validChars.EncodeRune(r)
+			return !ok
+		})),
+		validChars.NewEncoder(),
+	)
+
+	// Transforma a string
+	var buf bytes.Buffer
+	writer := transform.NewWriter(&buf, t)
+
+	_, err := writer.Write([]byte(input))
+	if err != nil {
+		return "", fmt.Errorf("erro ao codificar para Windows-1252: %w", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("erro ao finalizar o writer: %w", err)
+	}
+
+	return buf.String(), nil
 }

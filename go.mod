@@ -4,12 +4,14 @@ go 1.22.4
 
 require (
 	github.com/denisenkom/go-mssqldb v0.12.3
+	github.com/gobuffalo/nulls v0.4.2
 	github.com/mattn/go-adodb v0.0.1
 	github.com/nakagami/firebirdsql v0.9.12
 )
 
 require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
+	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/term v0.15.0 // indirect
 )
@@ -27,6 +29,6 @@ require (
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.14.0
 	modernc.org/mathutil v1.4.2-0.20220822142738-b13e5b564332 // indirect
 )

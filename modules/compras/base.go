@@ -3,35 +3,40 @@ package compras
 import (
 	"MGFSiga/connection"
 	"MGFSiga/modules"
-	"database/sql"
 	"fmt"
 	"strings"
 
 	"github.com/vbauerster/mpb"
 )
 
-func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
+func Cadunimedida(p *mpb.Progress) {
 	modules.LimpaTabela("cadunimedida")
-	tx, err := cnxFdb.Begin()
-	if err != nil {
-		fmt.Printf("erro ao iniciar transação: %v", err)
-	}
-	defer tx.Commit()
 
-	insert, err := tx.Prepare("INSERT INTO CADUNIMEDIDA(sigla, descricao) VALUES(?,?)")
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		panic("Falha ao conectar com o banco de origem: " + err.Error())
+	}
+	defer cnxSqls.Close()
+
+	insert, err := cnxFdb.Prepare("INSERT INTO CADUNIMEDIDA(sigla, descricao) VALUES(?,?)")
 	if err != nil {
 		fmt.Printf("Erro ao preparar insert: %v", err)
 	}
-	
 
-	query := "SELECT DISTINCT rtrim(SUBSTRING(unidade, 1, 5)) AS sigla, rtrim(unidade) as unidade FROM EspecificacaoMaterialOuServico emos"
+	query := "SELECT DISTINCT rtrim(unidade) as unidade FROM EspecificacaoMaterialOuServico emos"
 	rows, err := cnxSqls.Query(query)
 	if err != nil {
 		fmt.Printf("Erro ao obter linhas: %v", err)
 	}
 	defer rows.Close()
 
-	totalLinhas, err := modules.CountRows(query, cnxFdb)
+	totalLinhas, err := modules.CountRows(query)
 	if err != nil {
 		fmt.Printf("erro ao contar linhas: %v", err)
 	}
@@ -39,15 +44,24 @@ func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	
 	for rows.Next() {
 		var (
-			sigla string
 			unidade string
 		)
 
-		if err := rows.Scan(&sigla, &unidade); err != nil {
+		if err := rows.Scan(&unidade); err != nil {
 			fmt.Printf("Erro ao scanear valores: %v", err)
 		}
 
-		_, err := insert.Exec(sigla, unidade)
+		unidadeConvertidaWin1252, err := modules.DecodeToWin1252(unidade)
+		if err != nil {
+			fmt.Printf("erro ao converter unidade para win1252: %v", err)
+		}
+
+		sigla := unidadeConvertidaWin1252
+		if len(sigla) > 5 {
+			sigla = sigla[:5]
+		}
+
+		_, err = insert.Exec(sigla, unidadeConvertidaWin1252)
 		if err != nil {
 			fmt.Printf("Erro ao inserir em CADUNIMEDIDA: %v", err)
 		}
@@ -55,12 +69,23 @@ func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	}
 }
 
-func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
+func GrupoSubgrupo(p *mpb.Progress) {
 	modules.LimpaTabela("cadsubgr")
 	modules.LimpaTabela("cadgrupo")
-
 	modules.NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
 	modules.NewCol("CADSUBGR", "ID_ANT", "varchar(6)")
+
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		panic("Falha ao conectar com o banco de origem: " + err.Error())
+	}
+	defer cnxSqls.Close()
 
 	tx, err := cnxFdb.Begin()
 	if err != nil {
@@ -86,7 +111,7 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 		fmt.Printf("erro ao obter linhas: %v", err)
 	}
 
-	totalLinhas, err := modules.CountRows(query, cnxFdb)
+	totalLinhas, err := modules.CountRows(query)
 	if err != nil {
 		fmt.Printf("erro ao contar linhas: %v", err)
 	}
@@ -104,7 +129,12 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 			fmt.Printf("Erro ao scanear valores: %v", err)
 		}
 
-		if _, err := insert.Exec(grupo, descricao, ocultar, id_ant); err != nil {
+		descricaoConvertidoWin1252, err := modules.DecodeToWin1252(descricao)
+		if err != nil {
+			fmt.Printf("erro ao decodificar descricao para win1252: %v", err)
+		}
+
+		if _, err := insert.Exec(grupo, descricaoConvertidoWin1252, ocultar, id_ant); err != nil {
 			fmt.Printf("Erro ao inserir em CADGRUPO: %v", err)
 		}
 		barGrupo.Increment()
@@ -115,8 +145,20 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	}
 }
 
-func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
+func Cadest(p *mpb.Progress) {
 	modules.LimpaTabela("cadest")
+
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		panic("Falha ao conectar com o banco de origem: " + err.Error())
+	}
+	defer cnxSqls.Close()
 
 	tx, err := cnxFdb.Begin()
 	if err != nil {
@@ -151,7 +193,7 @@ func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 		especificacao,
 		contaDoAtivo balcoTce,
 		VPD balcoTceSaida,
-		rtrim(substring(unidade, 1, 5)) unidade,
+		rtrim(unidade) unidade,
 		case 
 			when idSubTipoDeProduto = 5 then 'S'
 			else 'P'
@@ -164,7 +206,7 @@ func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 		fmt.Printf("erro ao obter linhas: %v", err)
 	}
 
-	totalLinhas, err := modules.CountRows(query, cnxSqls)
+	totalLinhas, err := modules.CountRows(query)
 	if err != nil {
 		fmt.Printf("erro ao contar linhas: %v", err)
 	}
@@ -196,7 +238,19 @@ func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 		cadpro := fmt.Sprintf("%v.%v",grupoSubgrupo, codigoString)
 		grupoSubgrupoSeparado := strings.Split(grupoSubgrupo, ".")
 
-		if _, err := insert.Exec(cadpro, grupoSubgrupoSeparado[0], grupoSubgrupoSeparado[1], codigoString, descricao, tipopro, unidade, especificacao, idEspecificacao, "N", balcoTce, balcoTceSaida); err != nil {
+		descricaoConvertidoWin1252, err := modules.DecodeToWin1252(descricao)
+		if err != nil {
+			fmt.Printf("erro ao decodificar descricao: %v", err)
+		}
+
+		unidadeConvertidaWin1252, err := modules.DecodeToWin1252(unidade)
+		if err != nil {
+			fmt.Printf("erro ao decodificar descricao: %v", err)
+		}
+
+		unidadeMedida := modules.Cache.Medidas[unidadeConvertidaWin1252]
+
+		if _, err := insert.Exec(cadpro, grupoSubgrupoSeparado[0], grupoSubgrupoSeparado[1], codigoString, descricaoConvertidoWin1252, tipopro, unidadeMedida, especificacao, idEspecificacao, "N", balcoTce, balcoTceSaida); err != nil {
 			fmt.Printf("Erro ao inserir em CADEST: %v", err)
 		}
 		barCadest.Increment()
@@ -207,16 +261,107 @@ func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 func Destino(p *mpb.Progress) {
 	modules.LimpaTabela("caddestino")
 
-	tx, err := connection.ConexaoFdb.Begin()
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	barDestino := modules.NewProgressBar(p, 1, "DESTINO")
+
+	if _, err := cnxFdb.Exec(fmt.Sprintf("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES('000000001','ALMOXARIFADO CENTRAL',%v)", modules.Cache.Empresa)); err != nil {
+		fmt.Printf("erro ao inserir almoxarifado: %v", err)
+	}
+	barDestino.Increment()
+}
+
+func CentroCusto(p *mpb.Progress) {
+	modules.LimpaTabela("centrocusto")
+
+	modules.NewCol("centrocusto", "id_ant", "varchar(6)")
+
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		panic("Falha ao conectar com o banco de origem: " + err.Error())
+	}
+	defer cnxSqls.Close()
+
+	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
 	defer tx.Commit()
 
-	insert, err := tx.Prepare("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES(?,?,?)")
+	insert, err := tx.Prepare(`insert
+		into
+		centrocusto (poder,
+		orgao,
+		destino,
+		ccusto,
+		descr,
+		codccusto,
+		empresa,
+		ocultar,
+		id_ant)
+	values (?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
-		fmt.Printf("Erro ao preparar insert: %v", err)
+		fmt.Printf("erro ao preparar insert: %v", err)
 	}
 
+	query := `select
+		'01' poder,
+		'03' orgao,
+		'000000001' destino,
+		1 ccusto,
+		CASE
+			WHEN c.DescricaoCCusto = '' THEN 'CONVERSAO'
+			ELSE c.DescricaoCCusto 
+		END AS descricao,
+		cast(c.IdCCusto as int) codccusto,
+		c.IdCCusto
+	from
+		MGFEstoq.dbo.CCusto c`
+
+	rows, err := cnxSqls.Query(query)
+	if err != nil {
+		fmt.Printf("erro ao obter linhas: %v", err)
+	}
 	
+	totalLinhas, err := modules.CountRows(query)
+	if err != nil {
+		fmt.Printf("erro ao contar linhas: %v", err)
+	}
+	barCcusto := modules.NewProgressBar(p, totalLinhas, "CENTRO DE CUSTO")
+
+	for rows.Next() {
+		var (
+			poder, orgao, destino, descricao, id_ant string
+			ccusto, codccusto int
+		)
+
+		if err := rows.Scan(&poder, &orgao, &destino, &ccusto, &descricao, &codccusto, &id_ant); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+
+		descricaoConvertidoWin1252, err := modules.DecodeToWin1252(descricao)
+		if err != nil {
+			fmt.Printf("erro ao decodificar: %v", err)
+		}
+
+		if len(descricaoConvertidoWin1252) > 64 {
+			descricaoConvertidoWin1252 = descricaoConvertidoWin1252[:64]
+		}
+
+		if _, err := insert.Exec(poder, orgao, destino, ccusto, descricaoConvertidoWin1252, codccusto, modules.Cache.Empresa, "N", id_ant); err != nil {
+			fmt.Printf("erro ao inserir registro: %v", err)
+		}
+		
+		barCcusto.Increment()
+	}
 }
