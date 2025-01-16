@@ -22,12 +22,17 @@ var Cache struct {
 	Itens map[string]string
 }
 
+<<<<<<< HEAD
 func init() {
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		panic("Falha ao conectar com o banco de destino: " + err.Error())
 	}
 	defer cnxFdb.Close()
+=======
+func ArmazenaGruposSubgrupos() {
+	Cache.Subgrupos = make(map[string]string)
+>>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 
 	cnxFdb.QueryRow("Select empresa from cadcli").Scan(&Cache.Empresa)
 }
@@ -213,6 +218,7 @@ func NewCol(table string, colName string, info string) {
 }
 
 func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error) {
+<<<<<<< HEAD
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
@@ -220,6 +226,9 @@ func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error
 	defer cnxFdb.Close()
 
 	tx, err := cnxFdb.Begin()
+=======
+	tx, err := connection.ConexaoFdb.Begin()
+>>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
@@ -257,6 +266,10 @@ func CriaGrupoSubgrupo(id_ant string) string {
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
+<<<<<<< HEAD
+=======
+	defer tx2.Commit()
+>>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 
 	grupo := id_ant[:3]
 
