@@ -23,5 +23,6 @@ func main() {
 	modules.ArmazenaItens()
 	// compras.Icadorc(p)
 	// compras.Fcadorc(p)
-	compras.Vcadorc(p)
+	// compras.Vcadorc(p)
+	compras.Cadlic(p)
 }
