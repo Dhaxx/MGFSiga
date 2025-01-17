@@ -240,3 +240,154 @@ func Icadorc(p *mpb.Progress) {
 		barIcadorc.Increment()
 	}
 }
+
+func Fcadorc(p *mpb.Progress) {
+	modules.LimpaTabela("Fcadorc")
+
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		panic("Falha ao conectar com o banco de origem: " + err.Error())
+	}
+	defer cnxSqls.Close()
+
+	tx, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("erro ao iniciar transação: %v", err)
+	}
+	defer tx.Commit()
+
+	insert, err := tx.Prepare("insert into fcadorc(numorc,codif, nome, valorc, id_cadorc) values (?,?,?,?,?)")
+	if err != nil {
+		fmt.Printf("erro ao preparar insert: %v", err)
+	}
+
+	query := `select
+		right(replicate('0',
+		5) + cast(idc.numeroProcesso as varchar),
+		5) + '/' + cast(idc.anoProcesso % 2000 as varchar) as numorc,
+		cgc_cpfFornecedor,
+		sum(quantidadeAComprar * precoUnitario) as total
+	from
+		itemDeCotacao idc
+	group by
+		right(replicate('0',
+		5) + cast(idc.numeroProcesso as varchar),
+		5) + '/' + cast(idc.anoProcesso % 2000 as varchar),
+		cgc_cpfFornecedor`
+
+	rows, err := cnxSqls.Query(query)
+	if err != nil {
+		fmt.Printf("erro ao executar consulta: %v", err)
+	}
+
+	totalLinhas, err := modules.CountRows(query)
+	if err != nil {
+		fmt.Printf("erro ao obter total de linhas")
+	}
+
+	barFcadorc := modules.NewProgressBar(p, totalLinhas, "FCADORC")
+
+	for rows.Next() {
+		var (
+			numorc, insmf string
+			valorc float32
+		)
+		
+		if err := rows.Scan(&numorc, &insmf, &valorc); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+
+		nome := modules.Cache.NomeForn[insmf]
+		codif := modules.Cache.Codif[insmf]
+		idCadorc := modules.Cache.IdCadorc[numorc]
+
+		if _, err := insert.Exec(numorc, codif, nome, valorc, idCadorc); err != nil {
+			fmt.Printf("erro ao inserir registro: %v", err)
+		}
+
+		barFcadorc.Increment()
+	}
+}
+
+func Vcadorc(p *mpb.Progress) {
+	modules.LimpaTabela("Vcadorc")
+
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxFdb.Close()
+
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		panic("Falha ao conectar com o banco de origem: " + err.Error())
+	}
+	defer cnxSqls.Close()
+
+	tx, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("erro ao iniciar transação: %v", err)
+	}
+
+	insert, err := tx.Prepare("insert into vcadorc(numorc, item, codif, vlruni, vlrtot, id_cadorc) values (?,?,?,?,?,?)")
+	if err != nil {
+		fmt.Printf("erro ao preparar insert: %v", err)
+	}
+
+	query := `select
+			right(replicate('0',
+			5)+ cast(idc.numeroProcesso as varchar),
+			5)+ '/' + cast(idc.anoProcesso%2000 as varchar) as numorc,
+			row_number() over (partition by numeroProcesso,
+		anoProcesso
+	order by
+		numeroProcesso,
+		anoProcesso,
+		idEspecificacao) item, 
+			idc.CGC_CPFFornecedor,
+			idc.precoUnitario,
+			idc.quantidadeAComprar * idc.precoUnitario valorTotal
+	from
+			MGFSiga.dbo.ItemDeCotacao idc`
+
+	rows, err := cnxSqls.Query(query)
+	if err != nil {
+		fmt.Printf("erro ao executar query: %v", err)
+	}
+
+	totalLinhas, err := modules.CountRows(query)
+	if err != nil {
+		fmt.Printf("erro ao obter total de registros: %v", err)
+	}
+
+	barVcadorc := modules.NewProgressBar(p, totalLinhas, "VCADORC")
+	
+	for rows.Next() {
+		var (
+			numorc, insmf string
+			item int
+			vlrUni, vlrTot float32
+		)
+
+		if err := rows.Scan(&numorc, &item, &insmf, &vlrUni, &vlrTot); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+
+		codif := modules.Cache.Codif[insmf]
+		idCadorc := modules.Cache.IdCadorc[numorc]
+
+		if _, err = insert.Exec(numorc, item, codif, vlrUni, vlrTot, idCadorc); err != nil {
+			fmt.Printf("erro ao inserir registro: %v", err)
+		}
+		barVcadorc.Increment()
+	}
+	tx.Commit()
+
+	cnxFdb.Exec(`UPDATE VCADORC SET GANHOU = CODIF, VLRGANHOU = VLRUNI`)
+}

@@ -20,19 +20,16 @@ var Cache struct {
 	Empresa int
 	IdCadorc map[string]int
 	Itens map[string]string
+	NomeForn map[string]string
+	Codif map[string]int
 }
 
-<<<<<<< HEAD
 func init() {
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		panic("Falha ao conectar com o banco de destino: " + err.Error())
 	}
 	defer cnxFdb.Close()
-=======
-func ArmazenaGruposSubgrupos() {
-	Cache.Subgrupos = make(map[string]string)
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 
 	cnxFdb.QueryRow("Select empresa from cadcli").Scan(&Cache.Empresa)
 }
@@ -93,7 +90,7 @@ func ArmazenaIdCadorc() {
 	}
 	defer cnxFdb.Close()
 
-	rows, err := cnxFdb.Query("select numorc, id_cadorc from cadunimedida")
+	rows, err := cnxFdb.Query("select numorc, id_cadorc from cadorc")
 	if err != nil {
 		fmt.Printf("erro ao buscar unidades de medida: %v", err)
 	}
@@ -110,17 +107,8 @@ func ArmazenaIdCadorc() {
 	}
 }
 
-func ArmazenaNumorc() {
-	Cache.IdCadorc = make(map[string]int)
-	cnxFdb, err := connection.ConexaoDestino()
-	if err != nil {
-		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
-	}
-	defer cnxFdb.Close()
-}
-
 func ArmazenaItens() {
-	Cache.IdCadorc = make(map[string]int)
+	Cache.Itens = make(map[string]string)
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
@@ -140,6 +128,36 @@ func ArmazenaItens() {
 		}
 
 		Cache.Itens[codreduz] = cadpro
+	}
+}
+
+func ArmazenaFornecedor() {
+	Cache.NomeForn = make(map[string]string)
+	Cache.Codif = make(map[string]int)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	rows, err := cnxFdb.Query("select nome, codif, insmf from desfor")
+	if err != nil {
+		fmt.Printf("erro ao obter informações: %v", err)
+	}
+
+	for rows.Next() {
+		var (
+			nome string
+			codif int
+			insmf string
+		)
+
+		if err := rows.Scan(&nome, &codif, &insmf); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+
+		Cache.NomeForn[insmf] = nome
+		Cache.Codif[insmf] = codif 
 	}
 }
 
@@ -218,7 +236,6 @@ func NewCol(table string, colName string, info string) {
 }
 
 func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error) {
-<<<<<<< HEAD
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
@@ -226,9 +243,6 @@ func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error
 	defer cnxFdb.Close()
 
 	tx, err := cnxFdb.Begin()
-=======
-	tx, err := connection.ConexaoFdb.Begin()
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
@@ -266,10 +280,6 @@ func CriaGrupoSubgrupo(id_ant string) string {
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-<<<<<<< HEAD
-=======
-	defer tx2.Commit()
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 
 	grupo := id_ant[:3]
 

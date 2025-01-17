@@ -26,22 +26,14 @@ func init() {
 		log.Fatalf("Erro ao carregar .env: %v", err)
 	}
 
-<<<<<<< HEAD
 	dsnFdb = fmt.Sprintf("%s:%s@%s:%s/%s?charset=win1252",
-=======
-	dsnFdb := fmt.Sprintf("%s:%s@%s:%s/%s?charset=win1252",
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 		os.Getenv("FDB_USER"),
 		os.Getenv("FDB_PASS"),
 		os.Getenv("FDB_HOST"),
 		os.Getenv("FDB_PORT"),
 		os.Getenv("FDB_PATH"))
 
-<<<<<<< HEAD
 	dsnSql = fmt.Sprintf("server=%s;user=%s;password=%s;port=%s;database=%s;charset=windows-1252",
-=======
-	dsnSql := fmt.Sprintf("server=%s;user=%s;password=%s;port=%s;database=%s;charset=windows-1252",
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 		os.Getenv("SQLS_HOST"),
 		os.Getenv("SQLS_USER"),
 		os.Getenv("SQLS_PASS"),

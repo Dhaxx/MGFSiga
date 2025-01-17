@@ -9,16 +9,10 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
-<<<<<<< HEAD
 func Cadunimedida(p *mpb.Progress) {
 	modules.LimpaTabela("cadunimedida")
 
 	cnxFdb, err := connection.ConexaoDestino()
-=======
-func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
-	modules.LimpaTabela("cadunimedida")
-	tx, err := cnxFdb.Begin()
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	if err != nil {
 		panic("Falha ao conectar com o banco de destino: " + err.Error())
 	}
@@ -75,15 +69,11 @@ func Cadunimedida(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	}
 }
 
-<<<<<<< HEAD
 func GrupoSubgrupo(p *mpb.Progress) {
-=======
-func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	modules.LimpaTabela("cadsubgr")
 	modules.LimpaTabela("cadgrupo")
 	modules.NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
-	modules.NewCol("CADSUBGR", "ID_ANT", "varchar(6)")
+	modules.NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
 
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
@@ -97,22 +87,11 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	}
 	defer cnxSqls.Close()
 
-<<<<<<< HEAD
-=======
-	modules.NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
-	modules.NewCol("CADSUBGR", "ID_ANT", "varchar(6)")
-
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	
-	insert, err := tx.Prepare("INSERT INTO CADGRUPO(grupo, nome, ocultar, id_ant) VALUES(?,?,?,?)")
-	if err != nil {
-		fmt.Printf("Erro ao preparar insert: %v", err)
-	}
-	
+
 	query := `select DISTINCT 
 		FORMAT(CAST(REPLACE(dbo.Grupo.IdGrupo, '0', '') AS INT),
 		'000') grupo,
@@ -122,16 +101,17 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	from
 		grupo`
 
+	insert, err := tx.Prepare("INSERT INTO CADGRUPO(grupo, nome, ocultar, id_ant) VALUES(?,?,?,?)")
+	if err != nil {
+		fmt.Printf("Erro ao preparar insert: %v", err)
+	}
+
 	rows, err := cnxSqls.Query(query)
 	if err != nil {
 		fmt.Printf("erro ao obter linhas: %v", err)
 	}
 
-<<<<<<< HEAD
 	totalLinhas, err := modules.CountRows(query)
-=======
-	totalLinhas, err := modules.CountRows(query, cnxFdb)
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	if err != nil {
 		fmt.Printf("erro ao contar linhas: %v", err)
 	}
@@ -144,11 +124,6 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 			ocultar string
 			id_ant string
 		)
-
-		if err := rows.Scan(&grupo, &descricao, &ocultar, &id_ant); err != nil {
-			fmt.Printf("Erro ao scanear valores: %v", err)
-		}
-
 		descricaoConvertidoWin1252, err := modules.DecodeToWin1252(descricao)
 		if err != nil {
 			fmt.Printf("erro ao decodificar descricao para win1252: %v", err)
@@ -165,7 +140,6 @@ func GrupoSubgrupo(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 	}
 }
 
-<<<<<<< HEAD
 func Cadest(p *mpb.Progress) {
 	modules.LimpaTabela("cadest")
 
@@ -181,11 +155,6 @@ func Cadest(p *mpb.Progress) {
 	}
 	defer cnxSqls.Close()
 
-=======
-func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
-	modules.LimpaTabela("cadest")
-
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	tx, err := cnxFdb.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
@@ -287,7 +256,6 @@ func Cadest(cnxSqls *sql.DB, cnxFdb *sql.DB, p *mpb.Progress) {
 func Destino(p *mpb.Progress) {
 	modules.LimpaTabela("caddestino")
 
-<<<<<<< HEAD
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		panic("Falha ao conectar com o banco de destino: " + err.Error())
@@ -320,15 +288,11 @@ func CentroCusto(p *mpb.Progress) {
 	defer cnxSqls.Close()
 
 	tx, err := cnxFdb.Begin()
-=======
-	tx, err := connection.ConexaoFdb.Begin()
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
 	defer tx.Commit()
 
-<<<<<<< HEAD
 	insert, err := tx.Prepare(`insert
 		into
 		centrocusto (poder,
@@ -395,12 +359,4 @@ func CentroCusto(p *mpb.Progress) {
 		
 		barCcusto.Increment()
 	}
-=======
-	insert, err := tx.Prepare("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES(?,?,?)")
-	if err != nil {
-		fmt.Printf("Erro ao preparar insert: %v", err)
-	}
-
-	
->>>>>>> 077bf8f21eabe7ac32d1c3c8e0de47dc1b9124b8
 }
