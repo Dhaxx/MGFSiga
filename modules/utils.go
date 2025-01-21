@@ -22,6 +22,7 @@ var Cache struct {
 	Itens map[string]string
 	NomeForn map[string]string
 	Codif map[string]int
+	NumlicAtravesDaNumorc map[string]int
 }
 
 func init() {
@@ -158,6 +159,31 @@ func ArmazenaFornecedor() {
 
 		Cache.NomeForn[insmf] = nome
 		Cache.Codif[insmf] = codif 
+	}
+}
+
+func ArmazenaNumlicAtravesDaNumorc() {
+	Cache.NumlicAtravesDaNumorc = make(map[string]int)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	rows, err := cnxFdb.Query("select numorc, numlic from cadorc where numlic is not null")
+	if err != nil {
+		fmt.Printf("erro ao buscar unidades de medida: %v", err)
+	}
+
+	for rows.Next() {
+		var numorc string
+		var numlic int
+
+		if err := rows.Scan(&numorc, &numlic); err != nil {
+			fmt.Printf("erro ao scanear valores: %v", err)
+		}
+
+		Cache.NumlicAtravesDaNumorc[numorc] = numlic
 	}
 }
 
@@ -330,4 +356,107 @@ func DecodeToWin1252(input string) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func DesativaAtivaTriggers(state string) {
+	cnx_fdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnx_fdb.Close()
+
+	query := fmt.Sprintf(`execute block
+        as
+            declare variable alter_trigger varchar(1024);
+        begin
+            for select 'alter trigger ' || trim(rdb$trigger_name) || ' %v;' 
+            from RDB$TRIGGERS
+            where (rdb$trigger_sequence = 200 OR (trim(rdb$trigger_name) STARTING WITH 'TBI_') OR (trim(rdb$trigger_name) STARTING WITH 'TBU_') OR (trim(rdb$trigger_name) STARTING WITH 'TBD_') OR (trim(rdb$trigger_name) STARTING WITH 'TD_'))
+            AND rdb$relation_name IN (
+                'CADUNIMEDIDA',
+                'CADGRUPO',
+                'CADSUBGR',
+                'CADEST',
+                'DESTINO',
+                'CENTROCUSTO',
+                'CADORC',
+                'ICADORC',
+                'FCADORC',
+                'VCADORC',
+                'CADLIC',
+                'CADPROLIC',
+                'CADPROLIC_DETALHE',
+                'CADPRO_STATUS',
+                'CADLIC_SESSAO',
+                'PROLIC',
+                'PROLICS',
+                'CADPRO_PROPOSTA',
+                'CADPRO_LANCE',
+                'CADPRO_FINAL',
+                'CADPRO',
+                'CADPROLIC_DETALHE_FIC',
+                'REGPRECODOC',
+                'REGPRECO',
+                'REGPRECOHIS',
+                'CADPED',
+                'ICADPED',
+                'REQUI',
+                'ICADREQ',
+                'PT_CADTIP',
+                'PT_CADPATD',
+                'PT_CADPATS',
+                'PT_CADPATG',
+                'PT_CADPAT',
+                'PT_MOVBEM'
+            )
+            into :alter_trigger
+            do
+                execute statement :alter_trigger;
+        end`, state)
+
+    _, err = cnx_fdb.Exec(query)
+    if err != nil {
+        panic("Falha ao executar execute block: " + err.Error())
+    }
+}
+
+func LimpaCompras() {
+	cnx_aux, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnx_aux.Close()
+
+	_, err = cnx_aux.Exec(`execute block as
+		begin
+		DELETE FROM ICADREQ;
+		DELETE FROM REQUI;
+		DELETE FROM ICADPED;
+		DELETE FROM CADPED;
+		DELETE FROM regpreco;
+		DELETE FROM regprecohis;
+		DELETE FROM regprecodoc;
+		DELETE FROM CADPROLIC_DETALHE_FIC;
+		DELETE FROM CADPRO;
+		DELETE FROM CADPRO_FINAL;
+		DELETE FROM CADPRO_LANCE;
+		DELETE FROM CADPRO_PROPOSTA;
+		DELETE FROM PROLICS;
+		DELETE FROM PROLIC;
+		DELETE FROM CADPRO_STATUS;
+		DELETE FROM CADLIC_SESSAO;
+		DELETE FROM CADPROLIC_DETALHE;
+		DELETE FROM CADPROLIC;
+		DELETE FROM CADLIC;
+		DELETE FROM VCADORC;
+		DELETE FROM FCADORC;
+		DELETE FROM ICADORC;
+		DELETE FROM CADORC;
+		DELETE FROM CADEST;
+		DELETE FROM CENTROCUSTO;
+		DELETE FROM DESTINO;
+		end;`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
 }

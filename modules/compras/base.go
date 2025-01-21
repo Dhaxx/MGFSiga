@@ -253,22 +253,22 @@ func Cadest(p *mpb.Progress) {
 	fmt.Print("Acabou")
 }
 
-func Destino(p *mpb.Progress) {
-	modules.LimpaTabela("caddestino")
+// func Destino(p *mpb.Progress) {
+// 	modules.LimpaTabela("caddestino")
 
-	cnxFdb, err := connection.ConexaoDestino()
-	if err != nil {
-		panic("Falha ao conectar com o banco de destino: " + err.Error())
-	}
-	defer cnxFdb.Close()
+// 	cnxFdb, err := connection.ConexaoDestino()
+// 	if err != nil {
+// 		panic("Falha ao conectar com o banco de destino: " + err.Error())
+// 	}
+// 	defer cnxFdb.Close()
 
-	barDestino := modules.NewProgressBar(p, 1, "DESTINO")
+// 	barDestino := modules.NewProgressBar(p, 1, "DESTINO")
 
-	if _, err := cnxFdb.Exec(fmt.Sprintf("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES('000000001','ALMOXARIFADO CENTRAL',%v)", modules.Cache.Empresa)); err != nil {
-		fmt.Printf("erro ao inserir almoxarifado: %v", err)
-	}
-	barDestino.Increment()
-}
+// 	if _, err := cnxFdb.Exec(fmt.Sprintf("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES('000000001','ALMOXARIFADO CENTRAL',%v)", modules.Cache.Empresa)); err != nil {
+// 		fmt.Printf("erro ao inserir almoxarifado: %v", err)
+// 	}
+// 	barDestino.Increment()
+// }
 
 func CentroCusto(p *mpb.Progress) {
 	modules.LimpaTabela("centrocusto")
@@ -312,7 +312,7 @@ func CentroCusto(p *mpb.Progress) {
 	query := `select
 		'01' poder,
 		'03' orgao,
-		'000000001' destino,
+		right(replicate('0', 9)+IdCCusto,9) destino,
 		1 ccusto,
 		CASE
 			WHEN c.DescricaoCCusto = '' THEN 'CONVERSAO'
@@ -355,6 +355,10 @@ func CentroCusto(p *mpb.Progress) {
 
 		if _, err := insert.Exec(poder, orgao, destino, ccusto, descricaoConvertidoWin1252, codccusto, modules.Cache.Empresa, "N", id_ant); err != nil {
 			fmt.Printf("erro ao inserir registro: %v", err)
+		}
+
+		if _, err := tx.Exec(fmt.Sprintf("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES('%v','%v',%v)", destino, descricaoConvertidoWin1252, modules.Cache.Empresa)); err != nil {
+			fmt.Printf("erro ao inserir almoxarifado: %v", err)
 		}
 		
 		barCcusto.Increment()

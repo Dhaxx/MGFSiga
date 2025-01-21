@@ -87,9 +87,10 @@ func Cadorc(p *mpb.Progress) {
 				concat(pdc.numeroLicitacao, pdc.anoLicitacao) numlic
 			from
 				dbo.Cotacao c
-			left join ProcessoDeCompra pdc on
+			join ProcessoDeCompra pdc on
 				c.numeroProcesso = pdc.numero
 				and c.anoProcesso = pdc.ano
+				--and pdc.tipoDeProcesso <> 2
 			left join MGFSiga.dbo.PessoaFisica pf on
 				pdc.cpfResponsavel = pf.cpf
 		union all
@@ -116,12 +117,13 @@ func Cadorc(p *mpb.Progress) {
 					when pdc.numeroLicitacao <> 0 then 'L'
 				end liberado_tela,
 				rtrim(pf.nome) solicitante,
-				concat(pdc.numeroLicitacao, pdc.anoLicitacao) numlic
+				concat(pdc.idModalidade, pdc.numeroLicitacao, pdc.anoLicitacao) numlic
 			from
 				dbo.CotacaoRegistroDePreco crdp
-			left join ProcessoDeCompra pdc on
+			join ProcessoDeCompra pdc on
 				crdp.numeroProcessoDeCompra = pdc.numero
-				and crdp.anoProcessoDeCompra = pdc.ano
+				and crdp.anoProcessoDeCompra = pdc.ano 
+				and pdc.tipoDeProcesso = 2
 			left join MGFSiga.dbo.PessoaFisica pf on
 				pdc.cpfResponsavel = pf.cpf) as rn) as subquery`
 	
