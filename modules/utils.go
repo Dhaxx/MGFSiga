@@ -135,13 +135,17 @@ func ArmazenaItens() {
 func ArmazenaFornecedor() {
 	Cache.NomeForn = make(map[string]string)
 	Cache.Codif = make(map[string]int)
+	defaultCodif := new(int)
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
 	}
 	defer cnxFdb.Close()
+	
+	cnxFdb.QueryRow("SELECT codif FROM desfor WHERE insmf = (SELECT replace(replace(cgc,('/'),''),'-','') from cadcli)").Scan(defaultCodif)
+	Cache.Codif["0"] = *defaultCodif
 
-	rows, err := cnxFdb.Query("select nome, codif, insmf from desfor")
+	rows, err := cnxFdb.Query("select nome, codif, trim(insmf) from desfor")
 	if err != nil {
 		fmt.Printf("erro ao obter informações: %v", err)
 	}
