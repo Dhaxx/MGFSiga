@@ -23,6 +23,7 @@ var Cache struct {
 	NomeForn map[string]string
 	Codif map[string]int
 	NumlicAtravesDaNumorc map[string]int
+	Situacoes map[string]string
 }
 
 func init() {
@@ -188,6 +189,27 @@ func ArmazenaNumlicAtravesDaNumorc() {
 		}
 
 		Cache.NumlicAtravesDaNumorc[numorc] = numlic
+	}
+}
+
+func ArmazenaSituacoes() {
+	Cache.Situacoes = make(map[string]string)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	if rows, err := cnxFdb.Query("select codigo_sit, descricao_sit from pt_cadsit"); err != nil {
+		fmt.Printf("erro ao buscar situações: %v", err)
+	} else {
+		for rows.Next() {
+			var codigo, descricao string
+			if err := rows.Scan(&codigo, &descricao); err != nil {
+				fmt.Printf("erro ao scanear valores: %v", err)
+			}
+			Cache.Situacoes[codigo] = descricao
+		}
 	}
 }
 

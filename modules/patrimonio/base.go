@@ -45,7 +45,12 @@ func TipoMov(p *mpb.Progress) {
 	barTipoMov := modules.NewProgressBar(p, 1, "TIPOMOV")
 
 	for sigla, descricao := range valores {
-		_, err := insert.Exec(sigla, descricao)
+		descricaoConvertido1252, err := modules.DecodeToWin1252(descricao)
+		if err != nil {
+			fmt.Printf("Erro ao converter descrição para Win1252: %v", err)
+		}
+
+		_, err = insert.Exec(sigla, descricaoConvertido1252)
 		if err != nil {
 			fmt.Printf("Erro ao inserir valores: %v", err)
 		}
@@ -74,8 +79,13 @@ func Cadajuste(p *mpb.Progress) {
 	}
 	defer tx.Commit()
 
+	descricaoConvertido1252, err := modules.DecodeToWin1252("REAVALIAÇÃO (ANTES DO CORTE)")
+	if err != nil {
+		fmt.Printf("Erro ao converter descrição para Win1252: %v", err)
+	}
+
 	barCadAjuste := modules.NewProgressBar(p, 1, "CADAJUSTE")
-	cnxFdb.Exec("INSERT INTO PT_CADAJUSTE (CODIGO_AJU, EMPRESA_AJU, DESCRICAO_AJU) VALUES (1, ?, 'REAVALIAÇÃO (ANTES DO CORTE)')", modules.Cache.Empresa)
+	cnxFdb.Exec("INSERT INTO PT_CADAJUSTE (CODIGO_AJU, EMPRESA_AJU, DESCRICAO_AJU) VALUES (1, ?, ?)", modules.Cache.Empresa, descricaoConvertido1252)
 	barCadAjuste.Completed()
 }
 
@@ -235,7 +245,7 @@ func Cadtip(p *mpb.Progress) {
 }
 
 func Cadpatd(p *mpb.Progress) {
-	modules.LimpaTabela("pt_cadtip")
+	modules.LimpaTabela("pt_cadpatd")
 
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
