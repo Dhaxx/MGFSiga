@@ -10,6 +10,7 @@ import (
 )
 
 func Cadped(p *mpb.Progress) {
+	modules.LimpaTabela("icadped")
 	modules.LimpaTabela("cadped")
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {

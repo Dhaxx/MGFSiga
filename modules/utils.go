@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/vbauerster/mpb"
@@ -447,13 +448,13 @@ func DesativaAtivaTriggers(state string) {
 }
 
 func LimpaCompras() {
-	cnx_aux, err := connection.ConexaoDestino()
+	cnxAux, err := connection.ConexaoDestino()
 	if err != nil {
 		panic("Falha ao conectar com o banco de destino: " + err.Error())
 	}
-	defer cnx_aux.Close()
+	defer cnxAux.Close()
 
-	_, err = cnx_aux.Exec(`execute block as
+	_, err = cnxAux.Exec(`execute block as
 		begin
 		DELETE FROM ICADREQ;
 		DELETE FROM REQUI;
@@ -484,5 +485,137 @@ func LimpaCompras() {
 		end;`)
 	if err != nil {
 		panic("Falha ao executar delete: " + err.Error())
+	}
+}
+
+func LimpaPatrimonio() {
+	cnxAux, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxAux.Close()
+
+	_, err = cnxAux.Exec(`DELETE FROM PT_MOVBEM`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
+	_, err = cnxAux.Exec(`DELETE FROM PT_CADPAT`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
+	_, err = cnxAux.Exec(`DELETE FROM PT_CADPATS`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
+	_, err = cnxAux.Exec(`DELETE FROM PT_CADPATD`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
+	_, err = cnxAux.Exec(`DELETE FROM PT_CADPATG`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
+	_, err = cnxAux.Exec(`DELETE FROM PT_CADBAI`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
+	_, err = cnxAux.Exec(`DELETE FROM PT_CADTIP`)
+	if err != nil {
+		panic("Falha ao executar delete: " + err.Error())
+	}
+}
+
+func ConvertStringToFloat(valorStr string) (float64, error) {
+	// Remover pontos (separadores de milhares)
+	valorStr = strings.Replace(valorStr, ".", "", -1)
+
+	// Substituir vírgula pelo ponto (separador decimal)
+	valorStr = strings.Replace(valorStr, ",", ".", -1)
+
+	// Converter para float
+	valorFloat, err := strconv.ParseFloat(valorStr, 64)
+	if err != nil {
+		return 0, fmt.Errorf("erro ao converter '%s' para float: %w", valorStr, err)
+	}
+
+	return valorFloat, nil
+}
+
+func AtualizaPatrimonio() {
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	tx1, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("Erro ao iniciar transação: %v", err)
+	}
+
+	tx1.Exec(`MERGE INTO PT_CADPAT a 
+	USING (SELECT
+		pt.codigo_pat_mov,
+		PT.CODIGO_SET_MOV_ANT
+	FROM
+		pt_movbem pt
+	WHERE
+		pt.TIPO_MOV = 'T'
+		AND pt.codigo_mov = (
+			SELECT FIRST 1 pt2.codigo_mov
+			FROM pt_movbem pt2
+			WHERE pt2.codigo_pat_mov = pt.codigo_pat_mov
+			AND pt2.tipo_mov = 'T'
+			ORDER BY pt2.DATA_MOV ASC)) b
+			ON a.codigo_pat = b.codigo_pat_mov
+	WHEN MATCHED THEN UPDATE SET a.codigo_set_pat = b.codigo_set_mov_ant`)
+	tx1.Commit()
+
+	tx2, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("Erro ao iniciar transação: %v", err)
+	}
+
+	tx2.Exec(`update pt_movbem a set a.codigo_set_mov = (select b.codigo_set_pat from pt_cadpat b where b.codigo_pat = a.codigo_pat_mov) where a.tipo_mov = 'A'`)
+	tx2.Commit()
+
+	cnxFdb.Exec("update pt_cadpat set codigo_bai_pat = null where dtpag_pat is null")
+}
+
+func OrganizaMovbem() {
+	cnxAux, err := connection.ConexaoDestino()
+	if err != nil {
+		panic("Falha ao conectar com o banco de destino: " + err.Error())
+	}
+	defer cnxAux.Close()
+
+	_, err = cnxAux.Exec(`EXECUTE BLOCK
+		AS
+		DECLARE VARIABLE id INTEGER;
+		BEGIN
+		-- Seleciona o valor máximo de codigo_mov e armazena na variável id
+		SELECT MAX(codigo_mov) 
+			FROM pt_movbem
+			INTO :id;
+
+		-- Atualiza o campo CODIGO_MOV somando o valor de id
+		UPDATE pt_movbem 
+			SET codigo_mov = codigo_mov + :id;
+
+		-- Atualiza o campo CODIGO_MOV com um novo valor da sequência gen_ancm
+		UPDATE pt_movbem 
+			SET codigo_mov = GEN_ID(gen_ancm, 1)
+		ORDER BY
+			data_mov,
+			CASE tipo_mov
+			WHEN 'A' THEN 1
+			WHEN 'T' THEN 2
+			WHEN 'R' THEN 3
+			WHEN 'B' THEN 5
+			ELSE 4
+			END;
+		END`)
+	if err != nil {
+		panic("Falha ao executar execute block: " + err.Error())
 	}
 }

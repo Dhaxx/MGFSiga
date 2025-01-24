@@ -11,6 +11,7 @@ import (
 )
 
 func Cadpat(p *mpb.Progress) {
+	modules.LimpaTabela("pt_movbem")
 	modules.LimpaTabela("pt_cadpat")
 
 	cnxFdb, err := connection.ConexaoDestino()
@@ -92,7 +93,7 @@ func Cadpat(p *mpb.Progress) {
 		numeroEmpenho,
 		anoEmpenho,
 		case 
-			when situacao = 1 then 1
+			when Baixado = 1 then 7
 		end codigo_bai_pat
 	from
 		MGFPatri.dbo.bens b

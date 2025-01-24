@@ -66,15 +66,19 @@ func Cadlic(p *mpb.Progress) {
 	}
 
 	query := `select
-				pdl.numeroLicitacao,
-				pdc.dataDoProcesso datae,
-				pdc.dataDoProcesso dtpub,
-				pdl.dataDoTermoDeRatificacao dtenc,
-				'09:00' horabe,
-				cast(pdc.objeto as nvarchar(MAX)) discr,
-				cast(cdj.descricao as nvarchar(MAX)) discr7,
-				case
-					when pdl.idModalidade in (0, 1, 2, 7, 9, 10) then 'DI01'
+	distinct *
+from
+	(
+	select
+					pdc.numero,
+					pdc.dataDoProcesso datae,
+					pdc.dataDoProcesso dtpub,
+					pdl.dataDoTermoDeRatificacao dtenc,
+					'09:00' horabe,
+					cast(pdc.objeto as nvarchar(1024)) discr,
+					cast(cdj.descricao as nvarchar(MAX)) discr7,
+					case
+						when pdl.idModalidade in (0, 1, 2, 7, 9, 10) then 'DI01'
 			--DISPENSA	
 			when pdl.idModalidade = 3 then 'IN01'
 			--INEXIGIBILIDADE
@@ -91,32 +95,14 @@ func Cadlic(p *mpb.Progress) {
 			when pdl.idModalidade = 12 then 'PE01'
 			--PREGÃO PRESENCIAL
 		end modlic,
-				pdl.dataDoTermoDeRatificacao dthom,
-				pdl.dataDoTermoDeRatificacao dtadj,
-				3 comp,
-				case
-					when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then '1'
-			--DISPENSA	
-			when pdc.idModalidade = 3 then '5'
-			--INEXIGIBILIDADE
-			when pdc.idModalidade = 4 then '2'
-			--CONVITE
-			when pdc.idModalidade = 5 then '3'
-			--TOMADA DE PREÇOS
-			when pdc.idModalidade = 6 then '4'
-			--CONCORRÊNCIA
-			when pdc.idModalidade = 8 then '8'
-			--PREGÃO PRESENCIAL
-			when pdc.idModalidade = 11 then '6'
-			--PREGÃO PRESENCIAL
-			when pdc.idModalidade = 12 then '9'
-			--PREGÃO PRESENCIAL
-		end + right(replicate('0',6) + cast(pdl.numeroLicitacao as varchar),5) numero,
-				'N' registropreco,
-				'U' ctlance,
-				'N' obra,
-				case
-					when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then '1'
+					pdl.dataDoTermoDeRatificacao dthom,
+					pdl.dataDoTermoDeRatificacao dtadj,
+					3 comp,
+					'N' registropreco,
+					'U' ctlance,
+					'N' obra,
+					case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then '1'
 			--DISPENSA	
 			when pdc.idModalidade = 3 then '5'
 			--INEXIGIBILIDADE
@@ -133,25 +119,25 @@ func Cadlic(p *mpb.Progress) {
 			when pdc.idModalidade = 12 then '9'
 			--PREGÃO PRESENCIAL
 		end + right(replicate('0',
-				6)+ cast(pdl.numeroLicitacao as varchar),
-				5)+ '/' + cast(pdl.anoLicitacao%2000 as varchar) proclic,
-				concat(pdl.idModalidade, pdl.numeroLicitacao, pdl.anoLicitacao) numlic,
-				2 microempresa,
-				pdl.anoLicitacao,
-				1 licnova,
-				'$' tlance,
-				'N' mult_entidade,
-				pdl.anoProcessoDeCompra,
-				'N' lei_invertfasestce,
-				pdc.valorEstimado,
-				pdl.justificativaDaModalidade detalhe,
-				pdc.formaDePagamento discr9,
-				'S' liberacompra,
-					right(replicate('0',
-					5)+ cast(pdl.numeroProcessoDeCompra as varchar),
-					5)+ '/' + cast(pdl.anoProcessoDeCompra%2000 as varchar) as numorc,
-					case
-					when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 1
+						5)+ cast(pdc.numero as varchar),
+						5)+ '/' + cast(pdc.ano%2000 as varchar) as proclic,
+					concat(pdl.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic,
+					2 microempresa,
+					pdl.anoLicitacao,
+					1 licnova,
+					'$' tlance,
+					'N' mult_entidade,
+					pdl.anoProcessoDeCompra,
+					'N' lei_invertfasestce,
+					pdc.valorEstimado,
+					cast(pdl.justificativaDaModalidade as nvarchar(max)) detalhe,
+					pdc.formaDePagamento discr9,
+					'S' liberacompra,
+						right(replicate('0',
+						5)+ cast(pdl.numeroProcessoDeCompra as varchar),
+						5)+ '/' + cast(pdl.anoProcessoDeCompra%2000 as varchar) as numorc,
+						case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 1
 			--DISPENSA	
 			when pdc.idModalidade = 3 then 5
 			--INEXIGIBILIDADE
@@ -169,24 +155,24 @@ func Cadlic(p *mpb.Progress) {
 			--PREGÃO PRESENCIAL
 		end codmod
 	from
-				MGFSiga.dbo.ProcessoDeLicitacao pdl
+					MGFSiga.dbo.ProcessoDeLicitacao pdl
 	join MGFSiga.dbo.ProcessoDeCompra pdc on
-				pdl.numeroProcessoDeCompra = pdc.numero
+					pdl.numeroProcessoDeCompra = pdc.numero
 		and pdl.anoProcessoDeCompra = pdc.ano
 		and pdc.tipoDeProcesso <> 2
 	left join CriterioDeJulgamento cdj on
-				cdj.idCriterio = pdc.idCriterio
-	union	
-			select
-				pdc.numeroLicitacao,
-				pdc.dataDoProcesso datae,
-				pdc.dataDoProcesso dtpub,
-				rdp.dataDaAta dtenc,
-				'09:00' horabe,
-				cast(pdc.objeto as nvarchar(MAX)) discr,
-				cast(cdj.descricao as nvarchar(MAX)) discr7,
-				case
-					when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 'DI01'
+					cdj.idCriterio = pdc.idCriterio
+union
+	select
+					pdc.numeroLicitacao,
+					pdc.dataDoProcesso datae,
+					pdc.dataDoProcesso dtpub,
+					rdp.dataDaAta dtenc,
+					'09:00' horabe,
+					cast(pdc.objeto as nvarchar(1024)) discr,
+					cast(cdj.descricao as nvarchar(MAX)) discr7,
+					case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 'DI01'
 			--DISPENSA	
 			when pdc.idModalidade = 3 then 'IN01'
 			--INEXIGIBILIDADE
@@ -203,35 +189,49 @@ func Cadlic(p *mpb.Progress) {
 			when pdc.idModalidade = 12 then 'PE01'
 			--PREGÃO PRESENCIAL
 		end modlic,
-				rdp.dataDaAta dthom,
-				rdp.dataDaAta dtadj,
-				3 comp,
-				right(replicate('0',
-				6)+ cast(pdc.numeroLicitacao as varchar),
-			6),
-				'S' registropreco,
-				'U' ctlance,
-				'N' obra,
-				right(replicate('0',
-				6)+ cast(pdc.numeroLicitacao as varchar),
-				6)+ '/' + cast(pdc.anoLicitacao%2000 as varchar) proclic,
-				concat(pdc.idModalidade, pdc.numeroLicitacao, pdc.anoLicitacao) numlic,
-				2 microempresa,
-				pdc.anoLicitacao,
-				1 licnova,
-				'$' tlance,
-				'N' mult_entidade,
-				pdc.ano,
-				'N' lei_invertfasestce,
-				pdc.valorEstimado,
-				rdp.objetoDoRegistro detalhe,
-				pdc.formaDePagamento discr9,
-				'S' liberacompra,
-					right(replicate('0',
-					5)+ cast(pdc.numero as varchar),
-					5)+ '/' + cast(pdc.ano%2000 as varchar) as numorc,
-				case
-					when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 1
+					rdp.dataDaAta dthom,
+					rdp.dataDaAta dtadj,
+					3 comp,
+					'S' registropreco,
+					'U' ctlance,
+					'N' obra,
+					case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then '1'
+			--DISPENSA	
+			when pdc.idModalidade = 3 then '5'
+			--INEXIGIBILIDADE
+			when pdc.idModalidade = 4 then '2'
+			--CONVITE
+			when pdc.idModalidade = 5 then '3'
+			--TOMADA DE PREÇOS
+			when pdc.idModalidade = 6 then '4'
+			--CONCORRÊNCIA
+			when pdc.idModalidade = 8 then '8'
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 11 then '6'
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 12 then '9'
+			--PREGÃO PRESENCIAL
+		end + right(replicate('0',
+						5)+ cast(pdc.numero as varchar),
+						5)+ '/' + cast(pdc.ano%2000 as varchar) as proclic,
+					concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic,
+					2 microempresa,
+					pdc.anoLicitacao,
+					1 licnova,
+					'$' tlance,
+					'N' mult_entidade,
+					pdc.ano,
+					'N' lei_invertfasestce,
+					pdc.valorEstimado,
+					cast(rdp.objetoDoRegistro as nvarchar(max)) detalhe,
+					pdc.formaDePagamento discr9,
+					'S' liberacompra,
+						right(replicate('0',
+						5)+ cast(pdc.numero as varchar),
+						5)+ '/' + cast(pdc.ano%2000 as varchar) as numorc,
+					case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 1
 			--DISPENSA	
 			when pdc.idModalidade = 3 then 5
 			--INEXIGIBILIDADE
@@ -249,13 +249,106 @@ func Cadlic(p *mpb.Progress) {
 			--PREGÃO PRESENCIAL
 		end codmod
 	from
-				MGFSiga.dbo.RegistroDePrecoNoOrgaoGestor rdp
+					MGFSiga.dbo.RegistroDePrecoNoOrgaoGestor rdp
 	join MGFSiga.dbo.ProcessoDeCompra pdc on
-				rdp.numeroDoProcesso = pdc.numero
+					rdp.numeroDoProcesso = pdc.numero
 		and rdp.anoDoProcesso = pdc.ano
 		and pdc.tipoDeProcesso = 2
 	join CriterioDeJulgamento cdj on
-				cdj.idCriterio = pdc.idCriterio`
+					cdj.idCriterio = pdc.idCriterio
+union all
+	select
+		rdp.numeroProcesso,	
+		dataDoProcesso,
+		dataDoProcesso,
+		rdp.dataDoRegistro,
+		'09:00' horabe,
+		cast(pdc.objeto as nvarchar(1024)) discr,
+		cast(cdj.descricao as nvarchar(MAX)) discr7,
+		case
+			when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 'DI01'
+			--DISPENSA	
+			when pdc.idModalidade = 3 then 'IN01'
+			--INEXIGIBILIDADE
+			when pdc.idModalidade = 4 then 'CONV'
+			--CONVITE
+			when pdc.idModalidade = 5 then 'TOM3'
+			--TOMADA DE PREÇOS
+			when pdc.idModalidade = 6 then 'CON4'
+			--CONCORRÊNCIA
+			when pdc.idModalidade = 8 then 'PP01'
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 11 then 'LEIL'
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 12 then 'PE01'
+			--PREGÃO PRESENCIAL
+		end modlic,
+		dataDoProcesso,
+		dataDoProcesso,
+		3 comp,
+		'S' registropreco,
+					'U' ctlance,
+					'N' obra,
+					case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then '1'
+			--DISPENSA	
+			when pdc.idModalidade = 3 then '5'
+			--INEXIGIBILIDADE
+			when pdc.idModalidade = 4 then '2'
+			--CONVITE
+			when pdc.idModalidade = 5 then '3'
+			--TOMADA DE PREÇOS
+			when pdc.idModalidade = 6 then '4'
+			--CONCORRÊNCIA
+			when pdc.idModalidade = 8 then '8'
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 11 then '6'
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 12 then '9'
+			--PREGÃO PRESENCIAL
+		end + right(replicate('0',
+						5)+ cast(pdc.numero as varchar),
+						5)+ '/' + cast(pdc.ano%2000 as varchar) as proclic,
+					concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic,
+					2 microempresa,
+					pdc.anoLicitacao,
+					1 licnova,
+					'$' tlance,
+					'N' mult_entidade,
+					pdc.ano,
+					'N' lei_invertfasestce,
+					pdc.valorEstimado,
+					cast(pdc.objeto as nvarchar(max)) detalhe,
+					pdc.formaDePagamento discr9,
+					'S' liberacompra,
+						right(replicate('0',
+						5)+ cast(pdc.numero as varchar),
+						5)+ '/' + cast(pdc.ano%2000 as varchar) as numorc,
+					case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then 1
+			--DISPENSA	
+			when pdc.idModalidade = 3 then 5
+			--INEXIGIBILIDADE
+			when pdc.idModalidade = 4 then 2
+			--CONVITE
+			when pdc.idModalidade = 5 then 3
+			--TOMADA DE PREÇOS
+			when pdc.idModalidade = 6 then 4
+			--CONCORRÊNCIA
+			when pdc.idModalidade = 8 then 8
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 11 then 6
+			--PREGÃO PRESENCIAL
+			when pdc.idModalidade = 12 then 9
+			--PREGÃO PRESENCIAL
+		end codmod
+	from
+		MGFSiga.dbo.RegistroDePreco rdp
+	join MGFSiga.dbo.ProcessoDeCompra pdc on
+		rdp.numeroProcesso = pdc.numero
+		and rdp.anoProcesso = pdc.ano
+	join MGFSiga.dbo.CriterioDeJulgamento cdj ON
+		cdj.idCriterio = pdc.idCriterio) as subquery`
 
 	rows, err := cnxSqls.Query(query)
 	if err != nil {
@@ -273,11 +366,11 @@ func Cadlic(p *mpb.Progress) {
 		var (
 			numpro, comp, numlic, ano, licnova, processoAno, codmod int
 			datae, dtpub, dtenc, horabe, discr, discr7, modlic, dthom, dtadj, registropreco, ctlance, 
-			obra, proclic, microempresa, tlance, mult_entidade, leiInvertfasestce, detalhe, liberacompra, numorc, discr9, numero  string
+			obra, proclic, microempresa, tlance, mult_entidade, leiInvertfasestce, detalhe, liberacompra, numorc, discr9, numero string
 			valor1 float32
 		)
 
-		if err := rows.Scan(&numpro, &datae, &dtpub, &dtenc, &horabe, &discr, &discr7, &modlic, &dthom, &dtadj, &comp, &numero, &registropreco, &ctlance, &obra, &proclic,
+		if err := rows.Scan(&numpro, &datae, &dtpub, &dtenc, &horabe, &discr, &discr7, &modlic, &dthom, &dtadj, &comp, &registropreco, &ctlance, &obra, &proclic,
 		&numlic, &microempresa, &ano, &licnova, &tlance, &mult_entidade, &processoAno, &leiInvertfasestce, &valor1, &detalhe, &discr9, &liberacompra, &numorc, &codmod); err != nil {
 			fmt.Printf("erro ao scanear valores: %v", err)
 		}
@@ -319,6 +412,8 @@ func Cadlic(p *mpb.Progress) {
 		if err != nil {
 			fmt.Printf("erro ao decodificar: %v", err)
 		}
+
+		numero = proclic[:6]
 
 		if _, err = insert.Exec(numpro, dataeFormatada, dtpubFormatada, dtencFormatada, horabe, discrConvertidoWin1252, discr7ConvertidoWin1252, modlic,
 		dthomFormatada, dtadjFormatada, comp, numero, registropreco, ctlance, obra, proclic, numlic, microempresa, ano, licnova,
@@ -503,12 +598,57 @@ func Cadprolic(p *mpb.Progress) {
 			end + right(replicate('0',
 					6)+ cast(pdc.numeroLicitacao as varchar),
 					5)+ '/' + cast(pdc.anoLicitacao%2000 as varchar) proclic,
-					concat(pdc.idModalidade, pdc.numeroLicitacao, pdc.anoLicitacao) numlic
+					concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic
 	from
 		MGFSiga.dbo.ItemDeProcessoDeCompra idc
 	join MGFSiga.dbo.ProcessoDeCompra pdc 
 	on pdc.numero = idc.numero and pdc.ano = idc.ano
-	where pdc.anoLicitacao <> 0 and pdc.numeroLicitacao <> 0) as subquery`
+	join MGFSiga.dbo.ProcessoDeLicitacao pdl on 
+	pdl.numeroProcessoDeCompra = pdc.numero
+	and pdl.anoProcessoDeCompra = pdc.ano
+	union 
+	select
+		right(replicate('0',
+		5)+ cast(idc.numero as varchar),
+		5)+ '/' + cast(idc.ano%2000 as varchar) as numorc,
+		right(replicate('0', 8)+cast(idlote as varchar), 8) as lotelic,
+		row_number() over (partition by idc.numero, idc.ano order by idc.numero, idc.ano, idc.idEspecificacao) item,
+		idEspecificacao,
+		0 codccusto,
+		quantidade,
+		idc.valorestimado,
+		quantidade * idc.valorestimado vato,
+		'N' reduz,
+		'N' microempresa,
+		'$' tlance,
+		case
+						when pdc.idModalidade in (0, 1, 2, 7, 9, 10) then '1'
+				--DISPENSA	
+				when pdc.idModalidade = 3 then '5'
+				--INEXIGIBILIDADE
+				when pdc.idModalidade = 4 then '2'
+				--CONVITE
+				when pdc.idModalidade = 5 then '3'
+				--TOMADA DE PREÇOS
+				when pdc.idModalidade = 6 then '4'
+				--CONCORRÊNCIA
+				when pdc.idModalidade = 8 then '8'
+				--PREGÃO PRESENCIAL
+				when pdc.idModalidade = 11 then '6'
+				--PREGÃO PRESENCIAL
+				when pdc.idModalidade = 12 then '9'
+				--PREGÃO PRESENCIAL
+			end + right(replicate('0',
+					6)+ cast(pdc.numeroLicitacao as varchar),
+					5)+ '/' + cast(pdc.anoLicitacao%2000 as varchar) proclic,
+					concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic
+	from
+		MGFSiga.dbo.ItemDeProcessoDeCompra idc
+	join MGFSiga.dbo.ProcessoDeCompra pdc 
+	on pdc.numero = idc.numero and pdc.ano = idc.ano
+	join MGFSiga.dbo.RegistroDePreco rdp on 
+	rdp.numeroProcesso  = pdc.numero 
+	and rdp.anoProcesso = pdc.ano) as subquery`
 
 	rows, err := cnxSqls.Query(query)
 	if err != nil {
@@ -609,31 +749,62 @@ func ProlicProlics(p *mpb.Progress) {
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	defer tx.Commit()
 
-	insertProlic, err := tx.Prepare("insert into prolic (codif, nome, status, numlic) values (?,?,?,?)")
-	if err != nil {
-		fmt.Printf("erro ao preparar insert: %v", err)
-	}
-	insertProlics, err := tx.Prepare(`insert into prolics (sessao, codif, status, representante, numlic, usa_preferencia) values (?,?,?,?,?,?)`)
+	insertProlic, err := tx.Prepare("insert into prolic (codif, nome, status, numlic, obs) values (?,?,?,?,?)")
 	if err != nil {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}
 
-	query := `select distinct
-		'A' status,
-		idp.cgc_cpf,
-		substring(razao, 1, 40) razao,
-		substring(nomeRepresentante, 1, 100) nome,
-		concat(pdc.idModalidade, pdc.numeroLicitacao, pdc.anoLicitacao) numlic,
-		'N' usa_preferencial
+	insertProlics, err := cnxFdb.Prepare(`insert into prolics (sessao, codif, status, representante, numlic, usa_preferencia) select 1, codif, status, obs, numlic, 'N' from prolic`)
+	if err != nil {
+		fmt.Printf("erro ao preparar insert: %v", err)
+	}
+
+	query := `select
+		distinct
+			'A' status,
+			trim(idp.cgc_cpf) cgc,
+			substring(razao, 1, 40) razao,
+			substring(nomeRepresentante, 1, 100) nome,
+			concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic
 	from
-		MGFSiga.dbo.ItemDeProposta idp
-	join proposta p on idp.anoProcesso = p.anoProcesso and 
-	idp.numeroProcesso = p.numeroProcesso and idp.cgc_cpf = p.cgc_cpf
-	join empresa e on e.cgc_cpf = p.cgc_cpf
-	join processoDeCompra pdc on pdc.numero = idp.numeroProcesso and pdc.ano = idp.anoProcesso
-	where numeroLicitacao <> 0`
+			MGFSiga.dbo.ItemDeProposta idp
+	join proposta p on
+		idp.anoProcesso = p.anoProcesso
+		and 
+		idp.numeroProcesso = p.numeroProcesso
+		and idp.cgc_cpf = p.cgc_cpf
+	join empresa e on
+		e.cgc_cpf = p.cgc_cpf
+	join processoDeCompra pdc on
+		pdc.numero = idp.numeroProcesso
+		and pdc.ano = idp.anoProcesso
+	join MGFSiga.dbo.ProcessoDeLicitacao pdl on
+		pdl.numeroProcessoDeCompra = pdc.numero
+		and pdl.anoProcessoDeCompra = pdc.ano
+	union 
+		select
+		distinct
+			'A' status,
+			trim(idp.cgc_cpf) cgc,
+			substring(razao, 1, 40) razao,
+			substring(nomeRepresentante, 1, 100) nome,
+			concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic
+	from
+			MGFSiga.dbo.ItemDeProposta idp
+	join proposta p on
+		idp.anoProcesso = p.anoProcesso
+		and 
+		idp.numeroProcesso = p.numeroProcesso
+		and idp.cgc_cpf = p.cgc_cpf
+	join empresa e on
+		e.cgc_cpf = p.cgc_cpf
+	join processoDeCompra pdc on
+		pdc.numero = idp.numeroProcesso
+		and pdc.ano = idp.anoProcesso
+	join MGFSiga.dbo.RegistroDePreco rdp on
+		rdp.numeroProcesso = pdc.numero
+		and rdp.anoProcesso = pdc.ano`
 
 	rows, err := cnxSqls.Query(query)
 	if err != nil {
@@ -652,7 +823,7 @@ func ProlicProlics(p *mpb.Progress) {
 			insmf, status, nome, representante, numlic, usaPreferencial string
 		)
 
-		if err := rows.Scan(&status, &insmf, &nome, &representante, &numlic, &usaPreferencial); err != nil {
+		if err := rows.Scan(&status, &insmf, &nome, &representante, &numlic); err != nil {
 			fmt.Printf("erro ao scanear valores: %v", err)
 		}
 
@@ -666,7 +837,7 @@ func ProlicProlics(p *mpb.Progress) {
 			fmt.Printf("erro ao decodificar: %v", err)
 		}
 
-		if _, err := insertProlic.Exec(codif, nomeConvertido1252, status, numlic); err != nil {
+		if _, err := insertProlic.Exec(codif, nomeConvertido1252, status, numlic, nome); err != nil {
 			fmt.Printf("erro ao inserir registro: %v", err)
 		}
 
@@ -675,6 +846,11 @@ func ProlicProlics(p *mpb.Progress) {
 		}
 
 		barProlic.Increment()
+	}
+	tx.Commit()
+
+	if _, err := insertProlics.Exec(); err != nil {
+		fmt.Printf("erro ao inserir registro: %v", err)
 	}
 }
 
@@ -739,23 +915,52 @@ func CadproProposta(p *mpb.Progress) {
 	}
 
 	query := `select
-		cgc_cpf,
-		1 sessao,
-		concat(pdc.idModalidade, pdc.numeroLicitacao, pdc.anoLicitacao) numlic,
-		case when idLote = 0 then null else right(replicate(0,'8')+idlote,8) end lotelic,
-		row_number() over (partition by pdc.numero, pdc.ano order by pdc.numero, pdc.ano, idp.idEspecificacao) item,
-		idp.quantidadeOfertada,
-		idp.precoUnitarioOfertado,
-		idp.quantidadeOfertada * idp.precoUnitarioOfertado vato1,
-		'C' status,
-		case 
-			when classificacao <> 0 then 1 
-			else classificacao
-		end subem
-	from
-		MGFSiga.dbo.ItemDeProposta idp
-	join ProcessoDeCompra pdc on idp.anoProcesso = pdc.ano and idp.numeroProcesso = pdc.numero
-	where pdc.numeroLicitacao <> 0`
+				trim(idp.cgc_cpf) cgc,
+				1 sessao,
+				concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic,
+				case when idLote = 0 then null else right(replicate(0, '8')+ cast(idlote as varchar), 8) end lotelic,
+				DENSE_RANK() over (partition by pdc.numero, pdc.ano order by idp.idEspecificacao) item,
+				idp.quantidadeVencedora,
+				idp.precoUnitarioFinal,
+				idp.quantidadeVencedora * idp.precoUnitarioFinal vato1,
+				case when documentacaoAceita = 1 then 'C' else 'D' end status,
+				case when idp.status = 0 then 1 else 0 end subem
+		from
+				MGFSiga.dbo.ItemDeProposta idp
+		join ProcessoDeCompra pdc on
+			idp.anoProcesso = pdc.ano
+			and idp.numeroProcesso = pdc.numero
+		join MGFSiga.dbo.ProcessoDeLicitacao pdl on
+			pdl.numeroProcessoDeCompra = pdc.numero
+			and pdl.anoProcessoDeCompra = pdc.ano
+		join MGFSiga.dbo.Proposta p on
+			idp.numeroProcesso = p.numeroProcesso 
+			and idp.anoProcesso = p.anoProcesso
+			and idp.CGC_CPF = p.CGC_CPF
+	UNION 
+	select
+				trim(rdp.cgc_cpf) cgc,
+				1 sessao,
+				concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic,
+				case when idLote = 0 then null else right(replicate(0, '8')+ cast(idlote as varchar), 8) end lotelic,
+				DENSE_RANK() over (partition by pdc.numero, pdc.ano order by idp.idEspecificacao) item,
+				idp.quantidadeVencedora,
+				idp.precoUnitarioFinal,
+				idp.quantidadeVencedora * idp.precoUnitarioFinal vato1,
+				case when documentacaoAceita = 1 then 'C' else 'D' end status,
+				case when idp.status = 0 then 1 else 0 end subem
+		from
+				MGFSiga.dbo.ItemDeProposta idp
+		join ProcessoDeCompra pdc on
+			idp.anoProcesso = pdc.ano
+			and idp.numeroProcesso = pdc.numero
+		join MGFSiga.dbo.RegistroDePreco rdp on
+			rdp.numeroProcesso = pdc.numero
+			and rdp.anoProcesso = pdc.ano
+		join MGFSiga.dbo.Proposta p on
+			idp.numeroProcesso = p.numeroProcesso 
+			and idp.anoProcesso = p.anoProcesso
+			and idp.CGC_CPF = p.CGC_CPF`
 
 	rows, err := cnxSqls.Query(query)
 	if err != nil {

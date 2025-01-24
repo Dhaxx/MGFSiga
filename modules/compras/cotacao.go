@@ -84,7 +84,7 @@ func Cadorc(p *mpb.Progress) {
 					when pdc.numeroLicitacao <> 0 then 'L'
 				end liberado_tela,
 				rtrim(pf.nome) solicitante,
-				concat(pdc.numeroLicitacao, pdc.anoLicitacao) numlic
+				concat(pdc.idModalidade, pdc.numero, pdc.ano%2000) numlic
 			from
 				dbo.Cotacao c
 			join ProcessoDeCompra pdc on
@@ -117,7 +117,7 @@ func Cadorc(p *mpb.Progress) {
 					when pdc.numeroLicitacao <> 0 then 'L'
 				end liberado_tela,
 				rtrim(pf.nome) solicitante,
-				concat(pdc.idModalidade, pdc.numeroLicitacao, pdc.anoLicitacao) numlic
+				concat(pdc.idModalidade, pdc.numero, pdc.numeroLicitacao, pdc.ano%2000) numlic
 			from
 				dbo.CotacaoRegistroDePreco crdp
 			join ProcessoDeCompra pdc on
@@ -273,7 +273,7 @@ func Fcadorc(p *mpb.Progress) {
 		right(replicate('0',
 		5) + cast(idc.numeroProcesso as varchar),
 		5) + '/' + cast(idc.anoProcesso % 2000 as varchar) as numorc,
-		cgc_cpfFornecedor,
+		trim(cgc_cpfFornecedor) cgc_cpfFornecedor,
 		sum(quantidadeAComprar * precoUnitario) as total
 	from
 		itemDeCotacao idc
