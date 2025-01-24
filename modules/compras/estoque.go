@@ -4,7 +4,7 @@ import (
 	"MGFSiga/connection"
 	"MGFSiga/modules"
 	"fmt"
-	"time"
+	// "time"
 
 	"github.com/vbauerster/mpb"
 )
@@ -44,9 +44,8 @@ func Requi(p *mpb.Progress) {
 			entr,
 			said,
 			comp,
-			obs,
 			codif)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}
@@ -57,136 +56,31 @@ func Requi(p *mpb.Progress) {
 	}
 
 	query := `select
-			idRequisicao,
-			format(sea.IdRequisicao,
-			'000000')+ '/' + cast(anoRequisicao%2000 as varchar) requi,
-			format(sea.IdRequisicao,
-			'000000') num,
-			AnoRequisicao ano,
-			right(replicate('0',
-			9)+ sea.IdCCusto,
-			9) destino,
-			cast(sea.IdCCusto as int) codccusto,
-			sea.DataBMDA,
-			'S' entr,
-			'N' said,
-			'P' comp,
-			descricaoNatureza obs,
-			sea.CGCFornecedor,
-			row_number() over (partition by idRequisicao,
-				anoRequisicao
-		order by
-				idRequisicao,
-				anoRequisicao, 
-				IdMaterial) item,
-			sea.QuantidadeMovimentada quan1,
-			0 quan2,
-			sea.ValorMovimentado / sea.QuantidadeMovimentada vaun1,
-			0 vaun2,
-			sea.ValorMovimentado vato1,
-			0 vato2,
-			IdMaterial
-		from
-			MGFEstoq.dbo.SQL_EntAnt sea
-		union all
+		*,
+		row_number() over (order by idMaterial) item,
+		case when quan1 <> 0 then valorSaldo / quan1 else 0 end valUni,
+		1280 codif
+	from
+		(
 		select
-			idRequisicao,
-			format(se.IdRequisicao,
-			'000000')+ '/' + cast(anoRequisicao%2000 as varchar) requi,
-			format(se.IdRequisicao,
-			'000000') num,
-			AnoRequisicao,
+			0 idRequi,
+			'000000/24' requi,
+			'000000' num,
+			2024 anorequi,
 			right(replicate('0',
-			9)+ se.IdCCusto,
+			9)+ IdCCusto,
 			9) destino,
-			cast(se.IdCCusto as int) codccusto,
-			se.DataBMDA,
+			cast(IdCCusto as int) codccusto,
+			'2024-01-01' data,
 			'S' entr,
-			'N' said,
-			'P' comp,
-			descricaoNatureza obs,
-			se.CGCFornecedor,
-			row_number() over (partition by idRequisicao,
-				anoRequisicao
-		order by
-				idRequisicao,
-				anoRequisicao, 
-				IdMaterial) item,
-			se.QuantidadeMovimentada quan1,
-			0 quan2,
-			se.ValorMovimentado / se.QuantidadeMovimentada vaun1,
-			0 vaun2,
-			se.ValorMovimentado vato1,
-			0 vato2,
-			IdMaterial
-		from
-			MGFEstoq.dbo.SQL_Ent se
-		union all
-		select
-			idRequisicao,
-			format(IdRequisicao,
-			'000000')+ '/' + cast(anoRequisicao%2000 as varchar) requi,
-			format(IdRequisicao,
-			'000000') num,
-			AnoRequisicao,
-			right(replicate('0',
-			9)+ DescricaoCCustoDestino,
-			9) destino,
-			cast(DescricaoCCustoDestino as int) codccusto,
-			DataBMDA,
-			'N' entr,
 			'S' said,
 			'P' comp,
-			descricaoNatureza obs,
-			'0' codif,
-			row_number() over (partition by idRequisicao,
-				anoRequisicao
-		order by
-				idRequisicao,
-				anoRequisicao, 
-				IdMaterial) item,
-			0 quan1,
-			ssa.QuantidadeMovimentada quan2,
-			0 vaun1,
-			ssa.ValorMovimentado / ssa.QuantidadeMovimentada vaun2,
-			0 vato1,
-			ssa.ValorMovimentado vato2,
-			ssa.IdMaterial
+			idMaterial,
+			(e.QuantidadeAnterior + e.QuantidadeEntradas + e.QuantidadeEntradasTransferencia) quan1,
+			(e.QuantidadeSaidas + e.QuantidadeSaidasTransferencia) quan2,
+			e.ValorSaldo
 		from
-			MGFEstoq.dbo.SQL_SaiAnt ssa
-		union all
-		select
-			idRequisicao,
-			format(IdRequisicao,
-			'000000')+ '/' + cast(anoRequisicao%2000 as varchar) requi,
-			format(IdRequisicao,
-			'000000') num,
-			AnoRequisicao,
-			right(replicate('0',
-			9)+ DescricaoCCustoDestino,
-			9) destino,
-			cast(DescricaoCCustoDestino as int) codccusto,
-			DataBMDA,
-			'N' entr,
-			'S' said,
-			'P' comp,
-			descricaoNatureza obs,
-			'0' codif,
-			row_number() over (partition by idRequisicao,
-				anoRequisicao
-		order by
-				idRequisicao,
-				anoRequisicao,
-				IdMaterial) item,
-			0 quan1,
-			QuantidadeMovimentada quan2,
-			0 vaun1,
-			ValorMovimentado / QuantidadeMovimentada vaun2,
-			0 vato1,
-			ValorMovimentado vato2,
-			IdMaterial
-		from
-			MGFEstoq.dbo.SQL_Sai`
+			MGFEstoq.dbo.Estoque e) as subquery`
 	
 	totalLinhas, err := modules.CountRows(query)
 	if err != nil {
@@ -195,36 +89,34 @@ func Requi(p *mpb.Progress) {
 
 	barRequi := modules.NewProgressBar(p, totalLinhas, "REQUI")
 
-	cabecalhos, err := cnxSqls.Query(fmt.Sprintf("select distinct idRequisicao, requi, num, ano, destino, codccusto, databmda, entr, said, comp, obs, cgcfornecedor from (%v) subquery", query))
+	cabecalhos, err := cnxSqls.Query(fmt.Sprintf("select distinct idRequi, requi, num, anorequi, '000000000' destino, 0 codccusto, data, entr, said, comp, codif from (%v) subquery", query))
 	if err != nil {
 		fmt.Printf("erro ao obter cabecalhos: %v", err)
 	}
 	
 	for cabecalhos.Next() {
 		var(
-			requi, num, destino, entr, said, comp, obs, insmf, dtlan string
+			requi, num, destino, entr, said, comp, dtlan string
 			idRequi, ano, codccusto, codif int
 		)
 
-		if err := cabecalhos.Scan(&idRequi, &requi, &num, &ano, &destino, &codccusto, &dtlan, &entr, &said, &comp, &obs, &insmf); err != nil {
+		if err := cabecalhos.Scan(&idRequi, &requi, &num, &ano, &destino, &codccusto, &dtlan, &entr, &said, &comp, &codif); err != nil {
 			fmt.Printf("erro ao scanear valores: %v", err)
 		}
 
-		codif = modules.Cache.Codif[insmf]
+		// dataParseada, err := time.Parse(time.RFC3339, dtlan)
+		// if err != nil {
+		// 	fmt.Printf("erro ao parsear string para data: %v", err)
+		// }
+		// dtlanFormatada := dataParseada.Format("2006-01-02")
 
-		dataParseada, err := time.Parse(time.RFC3339, dtlan)
-		if err != nil {
-			fmt.Printf("erro ao parsear string para data: %v", err)
-		}
-		dtlanFormatada := dataParseada.Format("2006-01-02")
-
-		if _, err := insertRequi.Exec(modules.Cache.Empresa, idRequi, requi, num, ano, destino, codccusto, dtlanFormatada, dtlanFormatada, entr, said, comp, obs, codif); err != nil {
+		if _, err := insertRequi.Exec(modules.Cache.Empresa, idRequi, requi, num, ano, destino, codccusto, dtlan, dtlan, entr, said, comp, codif); err != nil {
 			fmt.Printf("erro ao executar insert: %v", err)
 		}
 		barRequi.Increment()
 	}
 
-	itens, err := cnxSqls.Query(fmt.Sprintf("select distinct idRequisicao, requi, codccusto, item, quan1, quan2, vaun1, vaun2, vato1, vato2, idMaterial, destino from (%v) subquery",query))
+	itens, err := cnxSqls.Query(fmt.Sprintf("select distinct idRequi, requi, codccusto, item, quan1, quan2, valUni, quan1 * valUni vato1, quan2*valUni vato2, idMaterial, destino from (%v) subquery",query))
 	if err != nil {
 		fmt.Printf("erro ao executar query: %v", err)
 	}
@@ -233,17 +125,17 @@ func Requi(p *mpb.Progress) {
 		var (
 			idRequisicao, codccusto, item int
 			requi, destino, idMaterial string
-			quan1, quan2, vaun1, vaun2, vato1, vato2 float64
+			quan1, quan2, vaun, vato1, vato2 float64
 		)
 
-		err = itens.Scan(&idRequisicao, &requi, &codccusto, &item, &quan1, &quan2, &vaun1, &vaun2, &vato1, &vato2, &idMaterial, &destino)
+		err = itens.Scan(&idRequisicao, &requi, &codccusto, &item, &quan1, &quan2, &vaun, &vato1, &vato2, &idMaterial, &destino)
 		if err != nil {
 			fmt.Printf("erro ao fazer scan: %v", err)
 		}
 
 		cadpro := modules.Cache.Itens[idMaterial]
 
-		if _, err := insertIcadreq.Exec(idRequisicao, requi, codccusto, modules.Cache.Empresa, item, quan1, quan2, vaun1, vaun2, vato1, vato2, cadpro, destino); err != nil {
+		if _, err := insertIcadreq.Exec(idRequisicao, requi, codccusto, modules.Cache.Empresa, item, quan1, quan2, vaun, vaun, vato1, vato2, cadpro, destino); err != nil {
 			fmt.Printf("erro ao executar insert: %v", err)
 		}
 	}
