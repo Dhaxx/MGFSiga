@@ -10,8 +10,8 @@ import (
 )
 
 func Requi(p *mpb.Progress) {
-	modules.LimpaTabela("icadreq")
-	modules.LimpaTabela("requi")
+	modules.LimpaTabela("icadreq where id_requi = 0")
+	modules.LimpaTabela("requi where id_requi = 0")
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		panic("Falha ao conectar com o banco de destino: " + err.Error())

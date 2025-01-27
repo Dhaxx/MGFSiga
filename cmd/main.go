@@ -2,8 +2,9 @@ package main
 
 import (
 	"MGFSiga/modules"
-	"MGFSiga/modules/compras"
+	// "MGFSiga/modules/compras"
 	// "MGFSiga/modules/patrimonio"
+	"MGFSiga/modules/frotas"
 
 	"github.com/vbauerster/mpb"
 )
@@ -14,15 +15,15 @@ func main() {
 	// modules.LimpaCompras()
 	// compras.Cadunimedida(p)
 	// compras.GrupoSubgrupo(p)
-	modules.ArmazenaGruposSubgrupos()
-	modules.ArmazenaUnidadesMedidas()
-	modules.ArmazenaFornecedor()
+	// modules.ArmazenaGruposSubgrupos()
+	// modules.ArmazenaUnidadesMedidas()
+	// modules.ArmazenaFornecedor()
 	// compras.Cadest(p)
 	// compras.CentroCusto(p)
 	// compras.Cadorc(p)
-	modules.ArmazenaIdCadorc()
-	modules.ArmazenaItens()
-	modules.ArmazenaNumlicAtravesDaNumorc()
+	// modules.ArmazenaIdCadorc()
+	// modules.ArmazenaItens()
+	// modules.ArmazenaNumlicAtravesDaNumorc()
 	// compras.Icadorc(p)
 	// compras.Fcadorc(p)
 	// compras.Vcadorc(p)
@@ -38,7 +39,7 @@ func main() {
 	// compras.Regpreco(p)
 	// compras.Cadped(p)
 	// compras.Icadped(p)
-	compras.Requi(p)
+	// compras.Requi(p)
 
 	// modules.LimpaPatrimonio()
 	// patrimonio.TipoMov(p)
@@ -55,6 +56,12 @@ func main() {
 	// patrimonio.Aquisicoes(p)
 	// patrimonio.Movimentacoes(p)
 	// modules.AtualizaPatrimonio()
+
+	// frotas.Marcas(p)
+	// frotas.TipoVeiculo(p)
+	frotas.Veiculos(p)
+	modules.ArmazenaPlacas()
+	frotas.Abastecimento(p)
 
 	modules.DesativaAtivaTriggers("ACTIVE")
 }
