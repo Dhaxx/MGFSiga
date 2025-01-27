@@ -25,6 +25,7 @@ var Cache struct {
 	Codif map[string]int
 	NumlicAtravesDaNumorc map[string]int
 	Situacoes map[string]string
+	Placa map[int]string
 }
 
 func init() {
@@ -210,6 +211,28 @@ func ArmazenaSituacoes() {
 				fmt.Printf("erro ao scanear valores: %v", err)
 			}
 			Cache.Situacoes[codigo] = descricao
+		}
+	}
+}
+
+func ArmazenaPlacas() {
+	Cache.Placa = make(map[int]string)
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	if rows, err := cnxFdb.Query("select sequencia, placa from veiculo"); err != nil {
+		fmt.Printf("erro ao buscar placas: %v", err)
+	} else {
+		for rows.Next() {
+			var sequencia int
+			var placa string
+			if err := rows.Scan(&sequencia, &placa); err != nil {
+				fmt.Printf("erro ao scanear valores: %v", err)
+			}
+			Cache.Placa[sequencia] = placa
 		}
 	}
 }
@@ -617,5 +640,27 @@ func OrganizaMovbem() {
 		END`)
 	if err != nil {
 		panic("Falha ao executar execute block: " + err.Error())
+	}
+}
+
+func CriaCentroDeCustoDoFrotas() {
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
+	}
+	defer cnxFdb.Close()
+
+	tx, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("erro ao iniciar transação: %v", err)
+	}
+
+	if _, err := tx.Exec("INSERT INTO destino (cod, desti, empresa) VALUES ('000000999', 'FROTAS', (SELECT empresa FROM cadcli))"); err != nil {
+		fmt.Printf("erro ao criar destino: %v", err)
+	}
+	tx.Commit()
+
+	if _, err := cnxFdb.Exec("INSERT INTO CENTROCUSTO (PODER, ORGAO, CODCCUSTO, CCUSTO, DESTINO, DESCR, OCULTAR) VALUES ('01', '03', '999', '1', '000000999', 'FROTAS', 'N')"); err != nil {
+		fmt.Printf("erro ao criar centro de custo: %v", err)
 	}
 }
