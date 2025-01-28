@@ -445,6 +445,11 @@ union all
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
 
+	tx5, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("erro ao iniciar transação: %v", err)
+	}
+
 	_, err = tx1.Exec(`EXECUTE BLOCK AS
 					DECLARE VARIABLE NUMLIC INTEGER;
 					DECLARE VARIABLE NUMORC VARCHAR(8);
@@ -513,29 +518,11 @@ union all
 	}
 	tx4.Commit()
 
-	// _, err = tx4.Exec(`MERGE INTO modlicano a 
-	// USING (SELECT
-	// 			COALESCE(MAX(NUMPRO), 0) maxNumpro,
-	// 			CODMOD,
-	// 			COALESCE(ANOMOD, 0) ANOMOD,
-	// 			EMPRESA
-	// 		FROM
-	// 			CADLIC c
-	// 		WHERE
-	// 			CODMOD IS NOT NULL
-	// 		GROUP BY
-	// 			2,
-	// 			3,
-	// 			4
-	// 		ORDER BY
-	// 			anomod,
-	// 			codmod) b
-	// ON a.codmod = b.codmod AND a.anomod = b.anomod
-	// WHEN MATCHED THEN UPDATE SET a.ultnumpro = b.maxNumpro`)
-	// if err != nil {
-	// 	fmt.Printf("erro ao executar query: %v", err)
-	// }
-	// tx4.Commit()
+	_, err = tx5.Exec(`update cadlic set processo = CAST(substring(numero FROM 3 for 6) AS int), ano = processo_ano`)
+	if err != nil {
+		fmt.Printf("erro ao executar query: %v", err)
+	}
+	tx5.Commit()
 }
 
 func Cadprolic(p *mpb.Progress) {
@@ -731,8 +718,8 @@ func CadprolicDetalhe(p *mpb.Progress) {
 }
 
 func ProlicProlics(p *mpb.Progress) {
-	modules.LimpaTabela("prolic")
-	modules.LimpaTabela("prolics")
+	// modules.LimpaTabela("prolic")
+	// modules.LimpaTabela("prolics")
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
 		panic("Falha ao conectar com o banco de destino: " + err.Error())
@@ -755,7 +742,8 @@ func ProlicProlics(p *mpb.Progress) {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}
 
-	insertProlics, err := cnxFdb.Prepare(`insert into prolics (sessao, codif, status, representante, numlic, usa_preferencia) select 1, codif, status, obs, numlic, 'N' from prolic`)
+	insertProlics, err := cnxFdb.Prepare(`insert into prolics (sessao, codif, status, representante, numlic, usa_preferencia) select 1, codif, status, obs, numlic, 'N' from prolic p
+	WHERE NOT EXISTS (SELECT 1 FROM prolics x WHERE x.numlic = p.numlic AND x.codif = p.codif)`)
 	if err != nil {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}

@@ -68,40 +68,46 @@ func Cadpat(p *mpb.Progress) {
 	}
 
 	query := `select
-		cast(idBem as int) codigo_pat,
-		case
-			when b.idClasse like '1231%' then 1
+			cast(idBem as int) codigo_pat,
+			case
+				when b.idClasse like '1231%' then 1
 			when b.idClasse like '1232%' then 2
 			else 3
 		end codigo_gru_pat,
-		right(idBem,
-		6) chapa_pat,
-		substring(b.idclasse, 1, 9) codigo_cpl_pat,
-		idLocal codigo_set_pat,
-		substring(tde.Descricao, 1, 1) orig_pat,
-		substring(c.descricao, 0, 60) tip_pat,
-		conservacao codigo_sit_pat,
-		DescricaoResumida discr_pat,
-		b.DescricaoTecnica obs_pat,
-		DataReferencia datae_pat,
-		DataIncorporacao dtlan_pat,
-		ValorOriginal valaqu_pat,
-		ValorAtual valatu_pat,
-		Fornecedor,
-		'V' dae_pat,
-		valorResidual,
-		numeroEmpenho,
-		anoEmpenho,
-		case 
-			when Baixado = 1 then 7
-		end codigo_bai_pat
+			right(idBem,
+			6) chapa_pat,
+			substring(b.idclasse, 1, 9) codigo_cpl_pat,
+			idLocal codigo_set_pat,
+			substring(tde.Descricao, 1, 1) orig_pat,
+			substring(c.descricao, 0, 60) tip_pat,
+			conservacao codigo_sit_pat,
+			DescricaoResumida discr_pat,
+			b.DescricaoTecnica obs_pat,
+			DataReferencia datae_pat,
+			DataIncorporacao dtlan_pat,
+			ValorOriginal valaqu_pat,
+			ValorAtual valatu_pat,
+			Fornecedor,
+			case 
+				when b.idDepreciacao = '999999999' then 'N'
+			else 'V'
+		end dae_pat,
+			valorResidual,
+			numeroEmpenho,
+			anoEmpenho,
+			case 
+				when Baixado = 1 then 7
+		end codigo_bai_pat,
+			'M' percentemp_pat,
+			isnull((d.vidautil * 12), 0) percenqtd_pat
 	from
-		MGFPatri.dbo.bens b
-	join MGFPatri.dbo.TipoDocumentoEntrada tde 
-	on
+			MGFPatri.dbo.bens b
+	join MGFPatri.dbo.TipoDocumentoEntrada tde on
 		tde.IdTipoEntrada = b.idtipoEntrada
 	left join MGFPatri.dbo.Classes c on
-		c.idClasse = b.idClasse`
+		c.idClasse = b.idClasse
+	left join MGFPatri.dbo.Depreciacoes d on
+		d.IdDepreciacao = substring(b.idclasse, 1, 9)`
 
 	totalLinhas, err := modules.CountRows(query)
 	if err != nil {
@@ -118,12 +124,12 @@ func Cadpat(p *mpb.Progress) {
 	for rows.Next() {
 		var (
 			codigoPat, codigoGrupat, codigoSetPat, codigoSitPat, nempg, anoemp, codif, codTip int
-			chapaPat, codigoCplPat, origPat, discrPat, obsPat, dataePat, dtlanPat, fornecedor, daePat, tipPat string
+			chapaPat, codigoCplPat, origPat, discrPat, obsPat, dataePat, dtlanPat, fornecedor, daePat, tipPat, percentemp, percenqtd string
 			valaquPat, valatuPat, valresPat float32 
 			codigoBaiPat sql.NullInt64
 		)
 
-		err := rows.Scan(&codigoPat, &codigoGrupat, &chapaPat, &codigoCplPat, &codigoSetPat, &origPat, &tipPat, &codigoSitPat, &discrPat, &obsPat, &dataePat, &dtlanPat, &valaquPat, &valatuPat, &fornecedor, &daePat, &valresPat, &nempg, &anoemp, &codigoBaiPat)
+		err := rows.Scan(&codigoPat, &codigoGrupat, &chapaPat, &codigoCplPat, &codigoSetPat, &origPat, &tipPat, &codigoSitPat, &discrPat, &obsPat, &dataePat, &dtlanPat, &valaquPat, &valatuPat, &fornecedor, &daePat, &valresPat, &nempg, &anoemp, &codigoBaiPat, &percentemp, &percenqtd)
 		if err != nil {
 			fmt.Printf("Erro ao escanear valores: %v", err)
 		}
@@ -173,7 +179,7 @@ func Cadpat(p *mpb.Progress) {
 		}
 		dataePatFormatada := dataePatParseada.Format("02.01.2006")
 
-		_, err = insert.Exec(codigoPat, modules.Cache.Empresa, codigoGrupat, chapaPat, codigoCplPat, codigoSetPat, codigoSetPat, origPat, codTip, codigoSitPat, descricaoConvertido1252, obsPat, dataePatFormatada, dtlanPatFormatada, valaquPat, valatuPat, codif, 0, daePat, valresPat, 0, nempg, anoemp, codigoPat, codigoBaiPat.Int64)
+		_, err = insert.Exec(codigoPat, modules.Cache.Empresa, codigoGrupat, chapaPat, codigoCplPat, codigoSetPat, codigoSetPat, origPat, codTip, codigoSitPat, descricaoConvertido1252, obsPat, dataePatFormatada, dtlanPatFormatada, valaquPat, valatuPat, codif, percenqtd, daePat, valresPat, percentemp, nempg, anoemp, codigoPat, codigoBaiPat.Int64)
 		if err != nil {
 			fmt.Printf("Erro ao inserir valores: %v", err)
 		}

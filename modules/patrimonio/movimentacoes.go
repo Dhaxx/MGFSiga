@@ -227,4 +227,3 @@ func Movimentacoes(p *mpb.Progress) {
 	}
 	tx.Commit()
 }
-

@@ -203,7 +203,7 @@ func Veiculos(p *mpb.Progress) {
 
 		cnxFdb.QueryRow(`select codigo_mar from veiculo_marca where descricao_mar containing ?`, stringMarca).Scan(&codigoMarca)	
 
-		_, err = cnxFdb.Exec(`insert into veiculo(placa, modelo, combustivel, anomod, renavam, chassi, codigo_marca_vei, codigo_tipo_vei, aquisicao, chapa, tanque, inativo, sequencia) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, placa, modelo, combustivel, AnoFabricacao, Renavan, chassi, codigoMarca, tipoVeiculo, dataAquisicaoFormatada, chapa, capacidadeTanque, inativoStatus, sequencia)
+		_, err = cnxFdb.Exec(`insert into veiculo(placa, modelo, combustivel, anomod, renavam, chassi, codigo_marca_vei, codigo_tipo_vei, aquisicao, codigo_bem_par, tanque, inativo, sequencia) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, placa, modelo, combustivel, AnoFabricacao, Renavan, chassi, codigoMarca, tipoVeiculo, dataAquisicaoFormatada, chapa, capacidadeTanque, inativoStatus, sequencia)
 		if err != nil {
 			panic(err)
 		}
@@ -278,13 +278,14 @@ func Abastecimento(p *mpb.Progress) {
 		codccusto,
 		datae,
 		dtlan,
+		dtpag,
 		entr,
 		said,
 		comp,
 		obs,
 		codif,
 		docum)
-	VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+	VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}
@@ -324,7 +325,12 @@ func Abastecimento(p *mpb.Progress) {
 			}
 		}
 
-		_, err = insertRequi.Exec(modules.Cache.Empresa, idRequi, requi, num, ano, destino, codccusto, dataFormatada, dataFormatada, entr, said, comp, obs, codif, nf)
+		obsConvertida1252, err := modules.DecodeToWin1252(obs)
+		if err != nil {
+			fmt.Printf("Erro ao converter descrição para Win1252: %v", err)
+		}
+
+		_, err = insertRequi.Exec(modules.Cache.Empresa, idRequi, requi, num, ano, destino, codccusto, dataFormatada, dataFormatada, dataFormatada, entr, said, comp, obsConvertida1252, codif, nf)
 		if err != nil {
 			fmt.Printf("erro ao executar insert: %v", err)
 		}
@@ -361,5 +367,99 @@ func Abastecimento(p *mpb.Progress) {
 		if err != nil {
 			fmt.Printf("erro ao executar insert: %v", err)
 		}
+	}
+}
+
+func Portaria(p *mpb.Progress) {
+	modules.LimpaTabela("PORTARIA")
+	cnxFdb, err := connection.ConexaoDestino()
+	if err != nil {
+		panic(err)
+	}
+	defer cnxFdb.Close()
+
+	cnxSqls, err := connection.ConexaoOrigem()
+	if err != nil {
+		panic(err)
+	}
+
+	tx, err := cnxFdb.Begin()
+	if err != nil {
+		panic(err)
+	}
+	defer tx.Commit()
+
+	query := `select
+		idOperacao,
+		cast(idVeiculo as int) idVeiculo,
+		o.DataOperacao,
+		o.InicioOperacao,
+		o.FimOperacao,
+		descricaoServico,
+		o.DetalhesDaOperacao
+	from
+		MGFFrota.dbo.Operacoes o
+	join MGFFrota.dbo.servicos s on
+		o.IdServico = s.idServico`
+
+	insert, err := tx.Prepare(`INSERT
+	INTO
+	portaria (
+	codmotor,
+	codigo,
+	placa,
+	saida,
+	entrada,
+	kmini,
+	kmfim,
+	obs,
+	obs_chegada) VALUES (?,?,?,?,?,?,?,?,?)`)
+	if err != nil {
+		panic(err)
+	}
+
+	rows, err := cnxSqls.Query(query)
+	if err != nil {
+		panic(err)
+	}
+
+	totalLinhas, err := modules.CountRows(query)
+	if err != nil {
+		panic(err)
+	}
+
+	barPortaria := modules.NewProgressBar(p, totalLinhas, "PORTARIA")
+
+	for rows.Next() {
+		var (
+			idOperacao, descricaoServico, dataOperacao, detalhes string
+			idVeiculo int
+			kmInicio, kmFim float32
+		)
+
+		err := rows.Scan(&idOperacao, &idVeiculo, &dataOperacao, &kmInicio, &kmFim, &descricaoServico, &detalhes)
+		if err != nil {
+			panic(err)
+		}
+
+		placa := modules.Cache.Placa[idVeiculo]
+		
+		dataParseada, err := time.Parse(time.RFC3339, dataOperacao)
+		if err != nil {
+			fmt.Printf("erro ao parsear string para data: %v", err)
+		}
+		dataFormatada := dataParseada.Format("2006-01-02")
+		
+		descricaoServicoConvertida1252, err := modules.DecodeToWin1252(descricaoServico)
+		if err != nil {
+			fmt.Printf("Erro ao converter descrição para Win1252: %v", err)
+		}
+		
+		_, err = insert.Exec(0, idOperacao, placa, dataFormatada, dataFormatada, kmInicio, kmFim, descricaoServicoConvertida1252, detalhes)
+		if err != nil {
+			panic(err)
+		}
+
+		barPortaria.Increment()
 	}
 }
