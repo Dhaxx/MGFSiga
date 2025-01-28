@@ -602,6 +602,16 @@ func AtualizaPatrimonio() {
 	tx2.Exec(`update pt_movbem a set a.codigo_set_mov = (select b.codigo_set_pat from pt_cadpat b where b.codigo_pat = a.codigo_pat_mov) where a.tipo_mov = 'A'`)
 	tx2.Commit()
 
+	tx3, err := cnxFdb.Begin()
+	if err != nil {
+		fmt.Printf("Erro ao iniciar transação: %v", err)
+	}
+
+	tx3.Exec(`MERGE INTO pt_cadpat a 
+	USING (SELECT codigo_pat_mov, sum(valor_mov) total FROM pt_movbem GROUP BY 1) o
+	ON a.codigo_pat = o.codigo_pat_mov WHEN MATCHED THEN UPDATE SET a.valatu_pat = o.total`)
+	tx3.Commit()
+
 	cnxFdb.Exec("update pt_cadpat set codigo_bai_pat = null where dtpag_pat is null")
 }
 

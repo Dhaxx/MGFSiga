@@ -54,7 +54,8 @@ func Cadped(p *mpb.Progress) {
 		5)+ cast(numeroAutorizacao as varchar),
 		5)+ '/' + cast(anoAutorizacao%2000 as varchar) obs
 	from
-		MGFSiga.dbo.AutorizacaoDeEmpenho ade`
+		MGFSiga.dbo.AutorizacaoDeEmpenho ade
+	where ade.status <> 90`
 
 	rows, err := cnxSqls.Query(query)
 	if err != nil {
@@ -127,18 +128,22 @@ func Icadped(p *mpb.Progress) {
 	}
 
 	query := `select
-		right(replicate('0',
-			5)+ cast(numeroAutorizacao as varchar),
-			5)+ '/' + cast(anoAutorizacao%2000 as varchar) numped,
-			idItem,
-			idEspecificacao,
-			idade.quantidadeAFornecer,
-			idade.valorUnitario,
-			idade.quantidadeAFornecer * idade.valorUnitario prctot,
-			0 codccusto,
-			concat(numeroAutorizacao, anoAutorizacao%2000) id_cadped
+			right(replicate('0',
+				5)+ cast(idade.numeroAutorizacao as varchar),
+				5)+ '/' + cast(idade.anoAutorizacao%2000 as varchar) numped,
+				idItem,
+				idEspecificacao,
+				idade.quantidadeAFornecer,
+				idade.valorUnitario,
+				idade.quantidadeAFornecer * idade.valorUnitario prctot,
+				0 codccusto,
+				concat(idade.numeroAutorizacao, idade.anoAutorizacao%2000) id_cadped
 	from
-		MGFSiga.dbo.ItemDeAutorizacaoDeEmpenho idade`
+			MGFSiga.dbo.ItemDeAutorizacaoDeEmpenho idade
+	join MGFSiga.dbo.AutorizacaoDeEmpenho ade on
+		idade.numeroAutorizacao = ade.numeroAutorizacao
+		and idade.anoAutorizacao = ade.anoAutorizacao
+		and ade.status <> 90`
 
 	rows, err := cnxSqls.Query(query)
 	if err != nil {
