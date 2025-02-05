@@ -312,31 +312,31 @@ func NewCol(table string, colName string, info string) {
 }
 
 func EstourouSubGrupo(codigo int, subgrupo string, id_ant string) (string, error) {
-	cnxFdb, err := connection.ConexaoDestino()
+	cnxAux, err := connection.ConexaoDestino()
 	if err != nil {
 		fmt.Printf("Falha ao conectar com o banco de destino: %v", err)
 	}
-	defer cnxFdb.Close()
 
-	tx, err := cnxFdb.Begin()
+	tx1, err := cnxAux.Begin()
 	if err != nil {
 		fmt.Printf("erro ao iniciar transação: %v", err)
 	}
-	defer tx.Commit()
+
+	var existe string
 
 	milhar := codigo / 1000
 	grupoSubgrupo := strings.Split(subgrupo, ".")
 	novoSubgr := fmt.Sprintf("%03d", milhar)
 	novoGrupoSubgrupo := grupoSubgrupo[0] + "." + novoSubgr
 
-	if _, err = tx.Query(fmt.Sprintf("select 1 from cadsubgr where id_ant = %v and subgrupo = %v", id_ant, novoSubgr)); err != nil {
-		if err == sql.ErrNoRows {
-			tx.Exec(fmt.Sprintf("INSERT INTO cadsubgr (grupo, SUBGRUPO, nome, ocultar, id_ant) SELECT GRUPO, %v, nome, ocultar, id_ant FROM CADGRUPO WHERE GRUPO = %v", novoSubgr, grupoSubgrupo[0]))
-		} else {
-			tx.Rollback()
-			return "", fmt.Errorf("erro ao buscar subgrupos: %v", err)
-		}
+	tx1.QueryRow(fmt.Sprintf("select 1 from cadsubgr where id_ant = '%v' and subgrupo = '%v'", id_ant, novoSubgr)).Scan(&existe)
+	if existe == "" {
+		tx1.Exec(fmt.Sprintf("INSERT INTO cadsubgr (grupo, SUBGRUPO, nome, ocultar, id_ant) SELECT GRUPO, '%v', nome, ocultar, id_ant FROM CADGRUPO WHERE id_ant = '%v'", novoSubgr, id_ant))
+		tx1.Commit()
+	} else {
+		tx1.Rollback()
 	}
+	cnxAux.Close()
 	return novoGrupoSubgrupo, err
 }
 
