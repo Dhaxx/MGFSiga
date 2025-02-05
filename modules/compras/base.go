@@ -73,7 +73,7 @@ func GrupoSubgrupo(p *mpb.Progress) {
 	modules.LimpaTabela("cadsubgr")
 	modules.LimpaTabela("cadgrupo")
 	modules.NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
-	modules.NewCol("CADGRUPO", "ID_ANT", "varchar(6)")
+	modules.NewCol("CADSUBGR", "ID_ANT", "varchar(6)")
 
 	cnxFdb, err := connection.ConexaoDestino()
 	if err != nil {
@@ -93,10 +93,7 @@ func GrupoSubgrupo(p *mpb.Progress) {
 	}
 
 	query := `select DISTINCT 
-		FORMAT(CAST(REPLACE(dbo.Grupo.IdGrupo, '0', '') AS INT),
-		'000') grupo,
-		substring(descricao,1,45) nome,
-		'N' ocultar,
+		case when IdGrupo = 0 then 'CONVERSÃO' ELSE substring(descricao,1,45) end nome,
 		IdGrupo
 	from
 		grupo`
@@ -117,19 +114,28 @@ func GrupoSubgrupo(p *mpb.Progress) {
 	}
 	barGrupo := modules.NewProgressBar(p, totalLinhas, "CADUNIMEDIDA")
 
+	var i int
+
 	for rows.Next() {
 		var (
-			grupo string
 			descricao string
-			ocultar string
 			id_ant string
 		)
+
+		i++
+
+		if err := rows.Scan(&descricao, &id_ant); err != nil {
+			fmt.Printf("Erro ao scanear valores: %v", err.Error())
+		}
+
+		grupo := fmt.Sprintf("%03d", i)
+		
 		descricaoConvertidoWin1252, err := modules.DecodeToWin1252(descricao)
 		if err != nil {
 			fmt.Printf("erro ao decodificar descricao para win1252: %v", err)
 		}
 
-		if _, err := insert.Exec(grupo, descricaoConvertidoWin1252, ocultar, id_ant); err != nil {
+		if _, err := insert.Exec(grupo, descricaoConvertidoWin1252, "N", id_ant); err != nil {
 			fmt.Printf("Erro ao inserir em CADGRUPO: %v", err)
 		}
 		barGrupo.Increment()
@@ -253,23 +259,6 @@ func Cadest(p *mpb.Progress) {
 	fmt.Print("Acabou")
 }
 
-// func Destino(p *mpb.Progress) {
-// 	modules.LimpaTabela("caddestino")
-
-// 	cnxFdb, err := connection.ConexaoDestino()
-// 	if err != nil {
-// 		panic("Falha ao conectar com o banco de destino: " + err.Error())
-// 	}
-// 	defer cnxFdb.Close()
-
-// 	barDestino := modules.NewProgressBar(p, 1, "DESTINO")
-
-// 	if _, err := cnxFdb.Exec(fmt.Sprintf("INSERT INTO DESTINO(COD, DESTI, EMPRESA) VALUES('000000001','ALMOXARIFADO CENTRAL',%v)", modules.Cache.Empresa)); err != nil {
-// 		fmt.Printf("erro ao inserir almoxarifado: %v", err)
-// 	}
-// 	barDestino.Increment()
-// }
-
 func CentroCusto(p *mpb.Progress) {
 	modules.LimpaTabela("centrocusto")
 
@@ -314,10 +303,10 @@ func CentroCusto(p *mpb.Progress) {
 		'03' orgao,
 		right(replicate('0', 9)+IdCCusto,9) destino,
 		1 ccusto,
-		CASE
+		substring(CASE
 			WHEN c.DescricaoCCusto = '' THEN 'CONVERSAO'
 			ELSE c.DescricaoCCusto 
-		END AS descricao,
+		END, 0, 60) AS descricao,
 		cast(c.IdCCusto as int) codccusto,
 		c.IdCCusto
 	from

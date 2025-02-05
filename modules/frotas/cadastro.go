@@ -216,9 +216,9 @@ func Abastecimento(p *mpb.Progress) {
 	modules.LimpaTabela("requi where id_requi <> 0")
 
 	tiposCombustiveis := map[string]string{
-		"GASOLINA": "023.001.331",
-		"DIESEL": "023.001.997",
-		"DIESEL S10": "023.004.876",
+		"GASOLINA": "026.001.331",
+		"DIESEL": "026.001.997",
+		"DIESEL S10": "026.004.876",
 	}
 
 	cnxFdb, err := connection.ConexaoDestino()

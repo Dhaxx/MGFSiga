@@ -2,9 +2,9 @@ package main
 
 import (
 	"MGFSiga/modules"
-	// "MGFSiga/modules/compras"
+	"MGFSiga/modules/compras"
 	"MGFSiga/modules/patrimonio"
-	// "MGFSiga/modules/frotas"
+	"MGFSiga/modules/frotas"
 
 	"github.com/vbauerster/mpb"
 )
@@ -12,34 +12,34 @@ import (
 func main() {
 	p := mpb.New()
 	modules.DesativaAtivaTriggers("INACTIVE")
-	// modules.LimpaCompras()
-	// compras.Cadunimedida(p)
-	// compras.GrupoSubgrupo(p)
+	modules.LimpaCompras()
+	compras.Cadunimedida(p)
+	compras.GrupoSubgrupo(p)
 	modules.ArmazenaGruposSubgrupos()
 	modules.ArmazenaUnidadesMedidas()
 	modules.ArmazenaFornecedor()
-	// compras.Cadest(p)
-	// compras.CentroCusto(p)
-	// compras.Cadorc(p)
+	compras.Cadest(p)
+	compras.CentroCusto(p)
+	compras.Cadorc(p)
 	modules.ArmazenaIdCadorc()
 	modules.ArmazenaItens()
 	modules.ArmazenaNumlicAtravesDaNumorc()
-	// compras.Icadorc(p)
-	// compras.Fcadorc(p)
-	// compras.Vcadorc(p)
-	// compras.Cadlic(p)
-	// compras.Cadprolic(p)
-	// compras.CadprolicDetalhe(p)
-	// compras.ProlicProlics(p)
-	// compras.CadlicSessao(p)
-	// compras.CadproProposta(p)
-	// compras.CadproLance(p)
-	// compras.CadproFinal(p)
-	// compras.Cadpro(p)
-	// compras.Regpreco(p)
-	// compras.Cadped(p)
-	// compras.Icadped(p)
-	// compras.Requi(p)
+	compras.Icadorc(p)
+	compras.Fcadorc(p)
+	compras.Vcadorc(p)
+	compras.Cadlic(p)
+	compras.Cadprolic(p)
+	compras.CadprolicDetalhe(p)
+	compras.ProlicProlics(p)
+	compras.CadlicSessao(p)
+	compras.CadproProposta(p)
+	compras.CadproLance(p)
+	compras.CadproFinal(p)
+	compras.Cadpro(p)
+	compras.Regpreco(p)
+	compras.Cadped(p)
+	compras.Icadped(p)
+	compras.Requi(p)
 
 	modules.LimpaPatrimonio()
 	patrimonio.TipoMov(p)
@@ -57,12 +57,12 @@ func main() {
 	patrimonio.Movimentacoes(p)
 	modules.AtualizaPatrimonio()
 
-	// frotas.Marcas(p)
-	// frotas.TipoVeiculo(p)
-	// frotas.Veiculos(p)
-	// modules.ArmazenaPlacas()
-	// frotas.Abastecimento(p)
-	// frotas.Portaria(p)
+	frotas.Marcas(p)
+	frotas.TipoVeiculo(p)
+	frotas.Veiculos(p)
+	modules.ArmazenaPlacas()
+	frotas.Abastecimento(p)
+	frotas.Portaria(p)
 
 	modules.DesativaAtivaTriggers("ACTIVE")
 }

@@ -44,7 +44,7 @@ func Cadped(p *mpb.Progress) {
 		5) num,
 		anoAutorizacao,
 		ade.dataAutorizacao,
-		cgc_cpf,
+		trim(cgc_cpf) cgc_cpf,
 		concat(numeroAutorizacao, anoAutorizacao%2000) id_cadped,
 		'N' entrou,
 		right(replicate('0',

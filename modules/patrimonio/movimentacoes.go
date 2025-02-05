@@ -40,7 +40,7 @@ func Aquisicoes(p *mpb.Progress) {
 								EMPRESA_PAT,
 								gen_id(gen_pt_movbem_id,1) as seq,
 								CODIGO_PAT,
-								DTLAN_PAT,
+								DATAE_PAT,
 								'A' tipo_mov,
 								CODIGO_CPL_PAT,
 								CODIGO_SET_PAT,
@@ -200,7 +200,7 @@ func Movimentacoes(p *mpb.Progress) {
 			}
 			valorMov = informacaoAtualFloat - informacaoAnteriorFloat
 		case 9:
-			if err := tx.QueryRow(fmt.Sprintf("select codigo_set from pt_cadpats where noset_set containing '%v'", informacaoAtual)).Scan(&codigoSetMov); err != nil {
+			if err := tx.QueryRow(fmt.Sprintf("select codigo_set from pt_cadpats where noset_set = '%v'", informacaoAtual)).Scan(&codigoSetMov); err != nil {
 				if err == sql.ErrNoRows {
 					codigoSetMov = 55
 				} else {
@@ -208,7 +208,7 @@ func Movimentacoes(p *mpb.Progress) {
 					panic(err)
 				}
 			}
-			if err := tx.QueryRow(fmt.Sprintf("select codigo_set from pt_cadpats where noset_set containing '%v'", informacaoAnterior)).Scan(&codigoSetMovAnt); err != nil {
+			if err := tx.QueryRow(fmt.Sprintf("select codigo_set from pt_cadpats where noset_set = '%v'", informacaoAnterior)).Scan(&codigoSetMovAnt); err != nil {
 				if err == sql.ErrNoRows {
 					codigoSetMovAnt = 55
 				} else {
