@@ -50,7 +50,7 @@ func Requi(p *mpb.Progress) {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}
 
-	insertIcadreq, err := tx.Prepare(`insert into icadreq (id_requi, requi, codccusto, empresa, item, quan1, quan2, vaun1, vaun2, vato1, vato2, cadpro, destino) values (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+	insertIcadreq, err := tx.Prepare(`insert into icadreq (id_requi, requi, codccusto, empresa, item, quan1, vaun1, vato1, cadpro, destino) values (?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}
@@ -64,7 +64,7 @@ func Requi(p *mpb.Progress) {
 		(
 		select
 			0 idRequi,
-			'000000/24' requi,
+			'000000/25' requi,
 			'000000' num,
 			2024 anorequi,
 			right(replicate('0',
@@ -73,7 +73,7 @@ func Requi(p *mpb.Progress) {
 			cast(IdCCusto as int) codccusto,
 			'2024-01-01' data,
 			'S' entr,
-			'S' said,
+			'N' said,
 			'P' comp,
 			idMaterial,
 			(e.QuantidadeAnterior + e.QuantidadeEntradas + e.QuantidadeEntradasTransferencia) quan1,
@@ -104,19 +104,13 @@ func Requi(p *mpb.Progress) {
 			fmt.Printf("erro ao scanear valores: %v", err)
 		}
 
-		// dataParseada, err := time.Parse(time.RFC3339, dtlan)
-		// if err != nil {
-		// 	fmt.Printf("erro ao parsear string para data: %v", err)
-		// }
-		// dtlanFormatada := dataParseada.Format("2006-01-02")
-
 		if _, err := insertRequi.Exec(modules.Cache.Empresa, idRequi, requi, num, ano, destino, codccusto, dtlan, dtlan, entr, said, comp, codif); err != nil {
 			fmt.Printf("erro ao executar insert: %v", err)
 		}
 		barRequi.Increment()
 	}
 
-	itens, err := cnxSqls.Query(fmt.Sprintf("select distinct idRequi, requi, codccusto, item, quan1, quan2, valUni, quan1 * valUni vato1, quan2*valUni vato2, idMaterial, destino from (%v) subquery",query))
+	itens, err := cnxSqls.Query(fmt.Sprintf("select distinct idRequi, requi, codccusto, item, quan1-quan2 as quan1, valUni, (quan1-quan2) * valUni vato1, idMaterial, destino from (%v) subquery",query))
 	if err != nil {
 		fmt.Printf("erro ao executar query: %v", err)
 	}
@@ -125,17 +119,17 @@ func Requi(p *mpb.Progress) {
 		var (
 			idRequisicao, codccusto, item int
 			requi, destino, idMaterial string
-			quan1, quan2, vaun, vato1, vato2 float64
+			quan1, vaun, vato1 float64
 		)
 
-		err = itens.Scan(&idRequisicao, &requi, &codccusto, &item, &quan1, &quan2, &vaun, &vato1, &vato2, &idMaterial, &destino)
+		err = itens.Scan(&idRequisicao, &requi, &codccusto, &item, &quan1, &vaun, &vato1, &idMaterial, &destino)
 		if err != nil {
 			fmt.Printf("erro ao fazer scan: %v", err)
 		}
 
 		cadpro := modules.Cache.Itens[idMaterial]
 
-		if _, err := insertIcadreq.Exec(idRequisicao, requi, codccusto, modules.Cache.Empresa, item, quan1, quan2, vaun, vaun, vato1, vato2, cadpro, destino); err != nil {
+		if _, err := insertIcadreq.Exec(idRequisicao, requi, codccusto, modules.Cache.Empresa, item, quan1, vaun, vato1, cadpro, destino); err != nil {
 			fmt.Printf("erro ao executar insert: %v", err)
 		}
 	}

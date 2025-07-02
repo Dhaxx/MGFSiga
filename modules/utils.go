@@ -148,7 +148,7 @@ func ArmazenaFornecedor() {
 	cnxFdb.QueryRow("SELECT codif FROM desfor WHERE insmf = (SELECT replace(replace(cgc,('/'),''),'-','') from cadcli)").Scan(defaultCodif)
 	Cache.Codif["0"] = *defaultCodif
 
-	rows, err := cnxFdb.Query("select nome, codif, trim(insmf) from desfor")
+	rows, err := cnxFdb.Query("select nome, codif, replace(replace(replace(trim(insmf),('/'),''),'-',''),'.','') from desfor")
 	if err != nil {
 		fmt.Printf("erro ao obter informações: %v", err)
 	}

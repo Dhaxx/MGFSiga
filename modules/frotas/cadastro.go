@@ -337,7 +337,7 @@ func Abastecimento(p *mpb.Progress) {
 	}
 	tx.Commit()
 
-	insertIcadreq, err := cnxFdb.Prepare(`insert into icadreq (id_requi, requi, codccusto, empresa, placa, item, quan1, quan2, vaun1, vaun2, vato1, vato2, cadpro, destino, km) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+	insertIcadreq, err := cnxFdb.Prepare(`insert into icadreq (id_requi, requi, codccusto, empresa, placa, item, quan1, vaun1, vato1, cadpro, destino, km) values (?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}

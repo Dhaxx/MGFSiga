@@ -30,7 +30,7 @@ func Cadped(p *mpb.Progress) {
 	}
 	defer tx.Commit()
 
-	insert, err := tx.Prepare(`insert into cadped (numped, num, ano, datped, codif, entrou, id_cadped, empresa, numlic, obs, codccusto) values (?,?,?,?,?,?,?,?,?,?,?)`)
+	insert, err := tx.Prepare(`insert into cadped (numped, num, ano, datped, codif, entrou, id_cadped, empresa, numlic, obs, codccusto, numorc) values (?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		fmt.Printf("erro ao preparar insert: %v", err)
 	}
@@ -94,7 +94,7 @@ func Cadped(p *mpb.Progress) {
 			fmt.Printf("erro ao converter obs para win1252: %v", err)
 		}
 
-		_, err = insert.Exec(numped, num, anoAutorizacao, dataFormatada, codif, entrou, id_cadped, empresa, numlic, obsConvertidoWin1252, 0)
+		_, err = insert.Exec(numped, num, anoAutorizacao, dataFormatada, codif, entrou, id_cadped, empresa, numlic, obsConvertidoWin1252, 0, numorc)
 		if err != nil {
 			fmt.Printf("erro ao executar insert: %v", err)
 		}
